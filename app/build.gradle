@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.filecopier'
+    compileSdk 34 // 确保大于等于 30
+
+    defaultConfig {
+        applicationId "com.example.filecopier"
+        // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
+        minSdkVersion 30
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17 // 使用您的 JDK 版本
+        targetCompatibility JavaVersion.VERSION_17 // 使用您的 JDK 版本
+    }
+}
+
+dependencies {
+    // 兼容性和 UI 依赖
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // 核心修复点：SAF 文件操作依赖 (解决程序包不存在错误)
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+
+    // 测试依赖...
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp"
+    android:paddingTop="20dp"> <TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="源文件夹 (监控此处):"
+    android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnSelectSource"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="选择源文件夹" />
+
+    <TextView
+        android:id="@+id/tvSourcePath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="未选择"
+        android:textSize="12sp"
+        android:textColor="#555555"/>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#CCCCCC" android:layout_marginVertical="5dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="目标文件夹 (复制到此处):"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/btnSelectTarget"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="选择目标文件夹" />
+
+    <TextView
+        android:id="@+id/tvTargetPath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="未选择"
+        android:textSize="12sp"
+        android:textColor="#555555"/>
+
+    <View android:layout_width="match_parent" android:layout_height="10dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="开始监控"
+            android:enabled="false"/>
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="停止监控"
+            android:enabled="false"/>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="运行日志:"
+        android:layout_marginTop="5dp"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#EEEEEE"
+        android:padding="5dp">
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textSize="8sp" />
+    </ScrollView>
+
+</LinearLayout>
