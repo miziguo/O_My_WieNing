@@ -144,7 +144,7 @@
                     android:layout_weight="1"
                     android:text="开始监控"
                     android:enabled="false"
-                    android:backgroundTint="@color/design_default_color_primary"/>
+                    android:backgroundTint="#FF000000"/>
 
                 <Button
                     android:id="@+id/btnStop"
@@ -197,7 +197,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="🔴 修复后台运行问题 (点击设置白名单)"
+                    android:text=""
                     android:visibility="gone"
                     style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:backgroundTint="#FFCC00"

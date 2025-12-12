@@ -9,7 +9,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.EditText; // 导入 EditText
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.Toast;
@@ -19,27 +19,29 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    public static final String PREF_NAME = "MonitorSettings";
-    public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
-    public static final String KEY_DELETE_MIRROR = "delete_mirror";
-
-    // --- 新增常量 ---
-    public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled"; // 过滤开关
-    public static final String KEY_FILTER_KEYWORDS = "filter_keywords";             // 过滤关键词
-    // ----------------
+    // =================================================================
+    // 【核心常量】所有跨文件共享的设置键
+    // =================================================================
+    public static final String PREF_NAME = "FileCopierPrefs";
+    public static final String KEY_SOURCE_PATH = "sourcePath";
+    public static final String KEY_TARGET_PATH = "targetPath";
+    public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index"; // 覆盖模式：0-跳过, 1-覆盖
+    public static final String KEY_DELETE_MIRROR = "delete_mirror"; // 同步删除
+    public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled"; // 内容过滤开关
+    public static final String KEY_FILTER_KEYWORDS = "filter_keywords"; // 过滤关键词
+    // =================================================================
 
     private SharedPreferences sharedPrefs;
     private Spinner spinnerOverwriteMode;
     private Switch switchDeleteMirror;
-
-    // --- 新增成员变量 ---
     private Switch switchContentFilter;
     private EditText etFilterKeywords;
-    // --------------------
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 假设您的布局文件名为 activity_settings.xml
         setContentView(R.layout.activity_settings);
 
         ActionBar actionBar = getSupportActionBar();
@@ -50,22 +52,19 @@ public class SettingsActivity extends AppCompatActivity {
 
         sharedPrefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
 
-        // 初始化旧 UI
-        spinnerOverwriteMode = findViewById(R.id.spinnerOverwriteMode);
-        switchDeleteMirror = findViewById(R.id.switchDeleteMirror);
-
-        // --- 初始化新 UI ---
-        switchContentFilter = findViewById(R.id.switchContentFilter);
-        etFilterKeywords = findViewById(R.id.etFilterKeywords);
-        // --------------------
+        // 初始化 UI 元素
+        spinnerOverwriteMode = findViewById(R.id.spinnerOverwriteMode); // 假设ID
+        switchDeleteMirror = findViewById(R.id.switchDeleteMirror); // 假设ID
+        switchContentFilter = findViewById(R.id.switchContentFilter); // 假设ID
+        etFilterKeywords = findViewById(R.id.etFilterKeywords); // 假设ID
 
         setupOverwriteModeSpinner();
         setupDeleteMirrorSwitch();
-        setupContentFilter(); // 调用新的设置方法
+        setupContentFilter();
     }
 
     private void setupOverwriteModeSpinner() {
-        // ... (与之前代码保持一致) ...
+        // 假设 R.array.overwrite_options 存在，包含 ["跳过", "覆盖"]
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
                 this,
                 R.array.overwrite_options,
@@ -90,7 +89,6 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void setupDeleteMirrorSwitch() {
-        // ... (与之前代码保持一致) ...
         switchDeleteMirror.setChecked(sharedPrefs.getBoolean(KEY_DELETE_MIRROR, false));
 
         switchDeleteMirror.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -99,34 +97,29 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    // --- 新增方法：设置文件过滤功能 ---
     private void setupContentFilter() {
-        // 1. 初始化开关状态
         boolean isFilterEnabled = sharedPrefs.getBoolean(KEY_CONTENT_FILTER_ENABLED, false);
         switchContentFilter.setChecked(isFilterEnabled);
 
-        // 2. 初始化输入框内容
         String savedKeywords = sharedPrefs.getString(KEY_FILTER_KEYWORDS, "");
         etFilterKeywords.setText(savedKeywords);
 
-        // 3. 监听开关状态，并实时更新输入框的启用状态
         etFilterKeywords.setEnabled(isFilterEnabled);
         switchContentFilter.setOnCheckedChangeListener((buttonView, isChecked) -> {
             sharedPrefs.edit().putBoolean(KEY_CONTENT_FILTER_ENABLED, isChecked).apply();
-            etFilterKeywords.setEnabled(isChecked); // 启用/禁用输入框
+            etFilterKeywords.setEnabled(isChecked);
 
             String msg = isChecked ? "文件过滤已开启" : "文件过滤已关闭 (复制全部)";
             Toast.makeText(SettingsActivity.this, msg, Toast.LENGTH_SHORT).show();
         });
 
-        // 4. 监听输入框文本变化，并实时保存
         etFilterKeywords.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // 实时保存输入内容
+                // 实时保存关键词
                 sharedPrefs.edit().putString(KEY_FILTER_KEYWORDS, s.toString()).apply();
             }
 
@@ -134,8 +127,6 @@ public class SettingsActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
     }
-    // ------------------------------------
-
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {

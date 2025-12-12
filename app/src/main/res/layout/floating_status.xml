@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/rounded_corner_background"
+    android:elevation="4dp">
+
+    <TextView
+        android:id="@+id/tvFloatingStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="服务状态加载中..."
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:background="#99000000"
+        android:maxWidth="200dp"
+        android:maxLines="3"
+        android:ellipsize="end"/>
+
+</LinearLayout>

@@ -29,18 +29,17 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-
 import java.io.File;
 import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
-
     private static final int REQUEST_PERMISSION_NOTIFY = 2001;
     private static final int REQUEST_OVERLAY_PERMISSION = 3001;
     private static final int REQUEST_MANAGE_EXTERNAL_STORAGE = 4001;
 
+    // Prefs常量在SettingsActivity中定义，这里为了兼容历史代码使用本地定义，但最好保持一致
     private static final String PREFS_NAME = "AppPrefs";
     private static final String KEY_SOURCE_PATH = "sourcePath";
     private static final String KEY_TARGET_PATH = "targetPath";
@@ -50,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
 
     private String sourcePath = null;
     private String targetPath = null;
-
     private ServiceStatusReceiver statusReceiver;
 
     @Override
@@ -58,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. 初始化UI (确保与 activity_main.xml 匹配)
+        // 1. 初始化UI
         tvSourcePath = findViewById(R.id.tvSourcePath);
         tvTargetPath = findViewById(R.id.tvTargetPath);
         tvEasterEgg = findViewById(R.id.tvEasterEgg);
@@ -68,16 +66,15 @@ public class MainActivity extends AppCompatActivity {
         btnStart = findViewById(R.id.btnStart);
         btnStop = findViewById(R.id.btnStop);
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
-        // 确保使用正确的 ID
+        // 确保使用正确的 ID (activity_main.xml 中该按钮 ID 是 btnOverlayPermission)
         btnStoragePermission = findViewById(R.id.btnOverlayPermission);
 
         requestNotificationPermission();
         loadPersistedPaths();
 
-        // 2. 绑定点击事件：现在弹出输入框
+        // 2. 绑定点击事件：弹出输入框
         btnSelectSource.setOnClickListener(v -> showPathInputDialog(KEY_SOURCE_PATH, "源文件夹路径"));
         btnSelectTarget.setOnClickListener(v -> showPathInputDialog(KEY_TARGET_PATH, "目标文件夹路径"));
-
         btnStart.setOnClickListener(v -> startServiceFunc());
         btnStop.setOnClickListener(v -> stopServiceFunc());
         btnBatteryOptimization.setOnClickListener(v -> requestIgnoreBatteryOptimizations());
@@ -92,7 +89,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
         IntentFilter filter = new IntentFilter(MonitorService.ACTION_SERVICE_STATUS);
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter);
 
@@ -116,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
         if (currentPath != null) {
             input.setText(currentPath);
         } else {
+            // 提供一个默认的外部存储根目录路径
             input.setText(Environment.getExternalStorageDirectory().getAbsolutePath() + "/");
         }
 
@@ -130,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // 确保路径以斜杠开头
+                    // 确保路径以斜杠开头 (简化处理，可能不完全严谨，但符合用户输入习惯)
                     if (!path.startsWith("/")) {
                         path = "/" + path;
                     }
@@ -173,8 +170,10 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isManageExternalStorageGranted() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // 【已修复】使用 Environment.isExternalStorageManager() 检查 MANAGE_EXTERNAL_STORAGE 权限 [cite: 947]
             return Environment.isExternalStorageManager();
         } else {
+            // 旧版本检查 WRITE_EXTERNAL_STORAGE 权限
             return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
     }
@@ -229,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
                 btnBatteryOptimization.setVisibility(View.VISIBLE);
-                btnBatteryOptimization.setText("🔴 修复后台运行问题 (点击设置白名单)");
+                btnBatteryOptimization.setText("");
             } else {
                 btnBatteryOptimization.setVisibility(View.GONE);
             }
@@ -288,7 +287,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         btnStart.setEnabled(false);
-
         if (!isOverlayPermissionGranted()) {
             Toast.makeText(this, "悬浮窗权限未授予，将无法显示实时状态。", Toast.LENGTH_LONG).show();
         }
@@ -297,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
         serviceIntent.putExtra("SOURCE_PATH", sourcePath);
         serviceIntent.putExtra("TARGET_PATH", targetPath);
 
+        // 启动前台服务
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
@@ -306,7 +305,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void stopServiceFunc() {
         btnStop.setEnabled(false);
-
         stopService(new Intent(this, MonitorService.class));
 
         Toast.makeText(this, "正在停止监控服务...", Toast.LENGTH_SHORT).show();
@@ -346,7 +344,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
+        // 权限或优化设置返回，重新检查
         if (requestCode == REQUEST_OVERLAY_PERMISSION || requestCode == REQUEST_MANAGE_EXTERNAL_STORAGE) {
             checkStoragePermissionStatus();
         }
@@ -367,21 +365,26 @@ public class MainActivity extends AppCompatActivity {
         btnStart.setEnabled(sourcePath != null && targetPath != null && !MonitorService.isRunning());
     }
 
-    // --- 菜单和设置跳转 (已恢复) ---
+    // --- 菜单和设置跳转 ---
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        // 菜单布局文件 main_menu.xml 中定义了 action_settings 选项
         getMenuInflater().inflate(R.menu.main_menu, menu);
         return true;
     }
+
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
+    public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        // 判断点击的是否是“设置”按钮
         if (item.getItemId() == R.id.action_settings) {
-            Intent intent = new Intent(this, SettingsActivity.class);
+            // 跳转到设置页面
+            android.content.Intent intent = new android.content.Intent(this, SettingsActivity.class);
             startActivity(intent);
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
+
 
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -390,10 +393,13 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void checkDateEasterEgg() {
         Calendar c = Calendar.getInstance();
         if (c.get(Calendar.MONTH) == Calendar.JUNE && c.get(Calendar.DAY_OF_MONTH) == 4) {
             if (tvEasterEgg != null) tvEasterEgg.setVisibility(View.VISIBLE);
         }
     }
+
+
 }
