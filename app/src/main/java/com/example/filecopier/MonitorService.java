@@ -4,230 +4,142 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
-
 import androidx.core.app.NotificationCompat;
 import androidx.documentfile.provider.DocumentFile;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class MonitorService extends Service {
-    private static final String TAG = "MonitorService";
     private static final String CHANNEL_ID = "FileMonitorChannel";
+    private static final int NOTIFICATION_ID = 1;
     private boolean isRunning = false;
-    private Thread monitorThread;
-
     private Map<String, Long> knownFiles = new HashMap<>();
+    private NotificationManager nm;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) return START_NOT_STICKY;
 
-        String action = intent.getAction();
-        if ("STOP".equals(action)) {
-            stopSelf();
-            return START_NOT_STICKY;
+        // 立即显示通知，防止系统杀掉
+        createNotificationChannel();
+        startForeground(NOTIFICATION_ID, buildNotification("准备监控中..."),
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC : 0);
+
+        String srcStr = intent.getStringExtra("SOURCE_URI");
+        String dstStr = intent.getStringExtra("TARGET_URI");
+
+        if (srcStr != null && dstStr != null && !isRunning) {
+            isRunning = true;
+            new Thread(() -> {
+                Uri src = Uri.parse(srcStr);
+                Uri dst = Uri.parse(dstStr);
+                // 初始化
+                initKnownFiles(src);
+                while (isRunning) {
+                    try {
+                        boolean copied = checkAndCopy(src, dst);
+                        updateNotification(copied ? "完事了！" : "正在等待");
+                        Thread.sleep(2000); // 2秒查一次
+                    } catch (Exception e) { e.printStackTrace(); }
+                }
+            }).start();
         }
-
-        String sourceUriStr = intent.getStringExtra("SOURCE_URI");
-        String targetUriStr = intent.getStringExtra("TARGET_URI");
-
-        if (sourceUriStr != null && targetUriStr != null) {
-            startForegroundNotification();
-            startMonitoring(Uri.parse(sourceUriStr), Uri.parse(targetUriStr));
-        }
-
         return START_STICKY;
     }
 
-    private void startForegroundNotification() {
-        createNotificationChannel();
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("文件监控运行中")
-                .setContentText("正在检测文件修改和新增...")
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .build();
-
-        startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-    }
-
-    private void startMonitoring(Uri sourceUri, Uri targetUri) {
-        if (isRunning) return;
-        isRunning = true;
-
-        initializeKnownFiles(sourceUri);
-
-        monitorThread = new Thread(() -> {
-            while (isRunning) {
-                try {
-                    checkAndCopy(sourceUri, targetUri);
-                    Thread.sleep(TimeUnit.SECONDS.toMillis(10));
-                } catch (InterruptedException e) {
-                    break;
-                } catch (Exception e) {
-                    // 仅内部打印，因为日志功能已移除
-                    // broadcastLog("错误: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-        });
-        monitorThread.start();
-    }
-
-    private void initializeKnownFiles(Uri sourceUri) {
-        DocumentFile sourceDir = DocumentFile.fromTreeUri(this, sourceUri);
-        if (sourceDir != null && sourceDir.isDirectory()) {
-            knownFiles.clear();
-            for (DocumentFile file : sourceDir.listFiles()) {
-                if (file.isFile()) {
-                    knownFiles.put(file.getName(), file.lastModified());
-                }
+    private void initKnownFiles(Uri uri) {
+        DocumentFile root = DocumentFile.fromTreeUri(this, uri);
+        if (root != null) {
+            for (DocumentFile f : root.listFiles()) {
+                if (f.isFile()) knownFiles.put(f.getName(), f.lastModified());
             }
         }
     }
 
-    private void checkAndCopy(Uri sourceUri, Uri targetUri) {
-        DocumentFile sourceDir = DocumentFile.fromTreeUri(this, sourceUri);
-        DocumentFile targetDir = DocumentFile.fromTreeUri(this, targetUri);
+    private boolean checkAndCopy(Uri src, Uri dst) {
+        DocumentFile srcDir = DocumentFile.fromTreeUri(this, src);
+        DocumentFile dstDir = DocumentFile.fromTreeUri(this, dst);
+        if (srcDir == null || dstDir == null) return false;
 
-        if (sourceDir == null || !sourceDir.exists() || targetDir == null || !targetDir.exists()) {
-            // 无法发送日志，只能依赖通知栏提示服务运行
-            return;
-        }
+        boolean activity = false;
+        for (DocumentFile f : srcDir.listFiles()) {
+            if (f.isDirectory()) continue; // 忽略文件夹
+            String name = f.getName();
+            long lastMod = f.lastModified();
 
-        DocumentFile[] currentFiles = sourceDir.listFiles();
-
-        for (DocumentFile file : currentFiles) {
-            String fileName = file.getName();
-
-            if (file.isFile() && fileName != null) {
-                long currentModified = file.lastModified();
-
-                if (!knownFiles.containsKey(fileName) || knownFiles.get(fileName) < currentModified) {
-
-                    boolean isModified = knownFiles.containsKey(fileName);
-
-                    boolean success = copyFile(file, targetDir, isModified);
-                    if (success) {
-                        knownFiles.put(fileName, currentModified);
-                    } else {
-                        // 复制失败处理
-                    }
+            if (!knownFiles.containsKey(name) || knownFiles.get(name) < lastMod) {
+                boolean isUpdate = knownFiles.containsKey(name);
+                if (doCopy(f, dstDir, isUpdate)) {
+                    knownFiles.put(name, lastMod);
+                    activity = true;
                 }
             }
         }
+        return activity;
     }
 
-    private boolean copyFile(DocumentFile srcFile, DocumentFile destDir, boolean isModified) {
-        InputStream in = null;
-        OutputStream out = null;
+    private boolean doCopy(DocumentFile srcFile, DocumentFile dstDir, boolean isUpdate) {
         try {
-            String baseName = srcFile.getName();
-            String mimeType = srcFile.getType();
-
-            if (isModified) {
-                String name = baseName;
-                String ext = "";
-                int dotIndex = baseName.lastIndexOf('.');
-                if (dotIndex > 0) {
-                    name = baseName.substring(0, dotIndex);
-                    ext = baseName.substring(dotIndex);
-                }
-
-                int counter = 1;
-                String newName;
-                DocumentFile numberedFile;
-
-                // 如果目标文件夹中已经存在同名文件，则在文件名后加 .1, .2, ...
-                if (destDir.findFile(baseName) != null) {
-                    // 如果原文件名已经存在于目标文件夹，则从 .1 开始编号
-                    do {
-                        newName = name + "." + counter + ext;
-                        numberedFile = destDir.findFile(newName);
-                        counter++;
-                    } while (numberedFile != null);
-
-                    baseName = newName;
-                } else {
-                    // 如果是修改的文件，但目标文件夹里没有同名文件，说明是第一次复制/修改，无需编号
-                    // 但由于逻辑只处理修改和新增，为了保证不覆盖，我们仍然进行编号
-                    int existingCopies = 0;
-                    do {
-                        newName = name + "." + existingCopies + ext;
-                        numberedFile = destDir.findFile(newName);
-                        if (numberedFile != null) {
-                            existingCopies++;
-                        }
-                    } while (numberedFile != null);
-
-                    if (existingCopies > 0) {
-                        // 从下一个编号开始
-                        counter = existingCopies;
-                        do {
-                            newName = name + "." + counter + ext;
-                            numberedFile = destDir.findFile(newName);
-                            counter++;
-                        } while (numberedFile != null);
-                        baseName = newName;
-                    }
-                    // 否则 (existingCopies == 0)， baseName 保持原名
-                }
+            String name = srcFile.getName();
+            if (isUpdate) {
+                // 自动重命名逻辑：file.1.txt
+                String pureName = name.contains(".") ? name.substring(0, name.lastIndexOf('.')) : name;
+                String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')) : "";
+                int i = 1;
+                while (dstDir.findFile(pureName + "." + i + ext) != null) i++;
+                name = pureName + "." + i + ext;
             }
-
-            DocumentFile destFile = destDir.createFile(mimeType, baseName);
-            if (destFile == null) return false;
-
-            in = getContentResolver().openInputStream(srcFile.getUri());
-            out = getContentResolver().openOutputStream(destFile.getUri());
-
-            if (in == null || out == null) return false;
-
-            byte[] buffer = new byte[4096];
-            int read;
-
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
+            DocumentFile target = dstDir.createFile(srcFile.getType(), name);
+            try (InputStream in = getContentResolver().openInputStream(srcFile.getUri());
+                 OutputStream out = getContentResolver().openOutputStream(target.getUri())) {
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             }
             return true;
-        } catch (Exception e) {
-            // Log.e(TAG, "Copy Error: " + e.getMessage()); // 仅内部 logcat 打印
-            return false;
-        } finally {
-            try {
-                if (in != null) in.close();
-                if (out != null) out.close();
-            } catch (Exception ignored) {}
-        }
+        } catch (Exception e) { return false; }
     }
 
-    // **broadcastLog 方法已移除**
+    private void updateNotification(String msg) {
+        nm.notify(NOTIFICATION_ID, buildNotification(msg));
+    }
+
+    private Notification buildNotification(String msg) {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("小南娘好可爱")
+                .setContentText(msg)
+                .setSmallIcon(android.R.drawable.ic_popup_sync)
+                .setOngoing(true)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                .build();
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel c = new NotificationChannel(CHANNEL_ID, "监控状态", NotificationManager.IMPORTANCE_LOW);
+            nm.createNotificationChannel(c);
+        }
+    }
 
     @Override
     public void onDestroy() {
         isRunning = false;
-        if (monitorThread != null) monitorThread.interrupt();
         super.onDestroy();
     }
 
     @Override
-    public IBinder onBind(Intent intent) { return null; }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel serviceChannel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "File Monitor Channel",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) manager.createNotificationChannel(serviceChannel);
-        }
-    }
+    public IBinder onBind(Intent i) { return null; }
 }
