@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">哦！我的男娘</string>
+
+    <string-array name="overwrite_options">
+        <item>自动添加编号 (推荐)</item>
+        <item>直接覆盖同名文件</item>
+    </string-array>
 </resources>

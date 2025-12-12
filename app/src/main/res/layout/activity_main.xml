@@ -1,154 +1,190 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#F5F5F5">
+    android:padding="16dp"
+    tools:context=".MainActivity">
 
-    <LinearLayout
-        android:layout_width="match_parent"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_settings"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingTop="36dp">
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="哦！我的男娘
-           Alpha 1.5"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="#000000"
-            android:layout_marginBottom="16dp"/>
-
-        <androidx.cardview.widget.CardView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:layout_marginBottom="16dp">
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="监控文件夹设置"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="源文件夹 (监控此处):"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#333333" />
-
-                <Button
-                    android:id="@+id/btnSelectSource"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="选择源文件夹"
-                    android:layout_marginTop="8dp"
-                    />
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
 
                 <TextView
                     android:id="@+id/tvSourcePath"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="未选择"
-                    android:textSize="12sp"
-                    android:textColor="#888888"
-                    android:layout_marginTop="8dp"/>
+                    android:layout_weight="1"
+                    android:hint="源: 点击选择需要监控的文件夹"
+                    android:maxLines="1"
+                    android:ellipsize="start"
+                    android:paddingEnd="8dp"
+                    android:gravity="center_vertical"/>
+
+                <Button
+                    android:id="@+id/btnSelectSource"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="选择源"
+                    style="@style/Widget.AppCompat.Button.Borderless.Colored" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            android:layout_marginBottom="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="目标文件夹 (复制到此处):"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#333333" />
-
-                <Button
-                    android:id="@+id/btnSelectTarget"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="选择目标文件夹"
-                    android:layout_marginTop="8dp"
-                    />
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
 
                 <TextView
                     android:id="@+id/tvTargetPath"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="未选择"
-                    android:textSize="12sp"
-                    android:textColor="#888888"
-                    android:layout_marginTop="8dp"/>
+                    android:layout_weight="1"
+                    android:hint="目标: 点击选择文件复制到的文件夹"
+                    android:maxLines="1"
+                    android:ellipsize="start"
+                    android:paddingEnd="8dp"
+                    android:gravity="center_vertical"/>
+
+                <Button
+                    android:id="@+id/btnSelectTarget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="选择目标"
+                    style="@style/Widget.AppCompat.Button.Borderless.Colored" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
+    <androidx.cardview.widget.CardView
+        android:id="@+id/card_actions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toBottomOf="@+id/card_settings"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_horizontal">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <Button
-                android:id="@+id/btnStart"
-                android:layout_width="0dp"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="开始监控"
-                android:enabled="false"
-                android:layout_marginEnd="8dp"/>
+                android:text="操作与状态"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/black" />
 
-            <Button
-                android:id="@+id/btnStop"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="停止监控"
-                android:enabled="false"
-                android:layout_marginStart="8dp"/>
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <Button
+                    android:id="@+id/btnStart"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="开始监控"
+                    android:enabled="false"
+                    android:backgroundTint="#4CAF50" />
+
+                <Button
+                    android:id="@+id/btnStop"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="停止监控"
+                    android:enabled="true"
+                    android:backgroundTint="#FF9800" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_service_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="状态: 服务未运行"
+                android:textColor="@color/black"
+                android:textStyle="italic" />
         </LinearLayout>
-        <LinearLayout
+    </androidx.cardview.widget.CardView>
+
+    <LinearLayout
+        android:id="@+id/layout_warnings"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@+id/card_actions"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Button
+            android:id="@+id/btnBatteryOptimization"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_horizontal">
+            android:text="💡 修复后台运行问题 (点击设置白名单)"
+            android:backgroundTint="#FF6347"
+            android:textColor="@android:color/white"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp"/>
 
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvEasterEgg"
+        <Button
+            android:id="@+id/btnOverlayPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center"
-            android:text="铭记历史，勿忘六四"
-            android:textSize="18sp"
-            android:textStyle="italic"
-            android:textColor="#FF0000"
+            android:text="🔔 解决厂商限制 (点击检查并授予权限)"
+            android:backgroundTint="#03A9F4"
+            android:textColor="@android:color/white"
             android:visibility="gone"/>
-
-
     </LinearLayout>
-</ScrollView>
+
+    <TextView
+        android:id="@+id/tvEasterEgg"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="今天是个特殊的日子"
+        android:textColor="#FF0000"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

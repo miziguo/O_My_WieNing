@@ -9,10 +9,10 @@ android {
     defaultConfig {
         applicationId "com.example.filecopier"
         // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
-        minSdkVersion 14
+        minSdkVersion 22
         targetSdk 34
         versionCode 6
-        versionName "Alpha 1.5"
+        versionName "Alpha 1.7 versionCode 6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -42,4 +42,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.google.android.material:material:1.8.0'
 }
