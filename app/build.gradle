@@ -9,10 +9,10 @@ android {
     defaultConfig {
         applicationId "com.example.filecopier"
         // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
-        minSdkVersion 22
+        minSdkVersion 26
         targetSdk 34
-        versionCode 7
-        versionName "Alpha 1.8"
+        versionCode 8
+        versionName "Alpha 1.9"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
