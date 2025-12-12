@@ -2,32 +2,31 @@ package com.example.filecopier;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.documentfile.provider.DocumentFile;
 
 import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
+import android.view.View; // 导入 View 类
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_SOURCE = 1001;
     private static final int REQUEST_CODE_TARGET = 1002;
 
-    private TextView tvSourcePath, tvTargetPath, tvLog;
+    private TextView tvSourcePath, tvTargetPath;
+    private TextView tvEasterEgg; // 声明彩蛋 TextView
     private Button btnSelectSource, btnSelectTarget, btnStart, btnStop;
 
     private Uri sourceUri = null;
     private Uri targetUri = null;
-
-    private LogReceiver logReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,11 +35,16 @@ public class MainActivity extends AppCompatActivity {
 
         tvSourcePath = findViewById(R.id.tvSourcePath);
         tvTargetPath = findViewById(R.id.tvTargetPath);
-        tvLog = findViewById(R.id.tvLog);
+        tvEasterEgg = findViewById(R.id.tvEasterEgg); // 找到彩蛋 TextView
+
         btnSelectSource = findViewById(R.id.btnSelectSource);
         btnSelectTarget = findViewById(R.id.btnSelectTarget);
         btnStart = findViewById(R.id.btnStart);
+        btnStop = findViewById(R.id.btnSelectTarget); // 修正：这里可能有一个复制错误，应该是 btnStop
+
+        // 修正：确保 btnStop 正确初始化
         btnStop = findViewById(R.id.btnStop);
+
 
         btnSelectSource.setOnClickListener(v -> openDirectoryPicker(REQUEST_CODE_SOURCE));
         btnSelectTarget.setOnClickListener(v -> openDirectoryPicker(REQUEST_CODE_TARGET));
@@ -48,15 +52,31 @@ public class MainActivity extends AppCompatActivity {
         btnStart.setOnClickListener(v -> startServiceFunc());
         btnStop.setOnClickListener(v -> stopServiceFunc());
 
-        // 注册日志接收器 (API 34/35 兼容写法)
-        logReceiver = new LogReceiver();
-        registerReceiver(logReceiver, new IntentFilter("MonitorServiceLog"), RECEIVER_NOT_EXPORTED);
-
         checkButtons();
+
+        // --- ⚙️ 彩蛋功能调用 ---
+        checkDateEasterEgg();
     }
 
+    /**
+     * 检测系统日期是否为 6 月 4 日，并显示彩蛋信息
+     */
+    private void checkDateEasterEgg() {
+        Calendar calendar = Calendar.getInstance();
+        int month = calendar.get(Calendar.MONTH);
+        int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+        if (month == Calendar.JUNE && day == 4) {
+            // 关键修改：将 TextView 的可见性设置为可见 (VISIBLE)
+            if (tvEasterEgg != null) {
+                tvEasterEgg.setVisibility(View.VISIBLE);
+            }
+        }
+        // 如果日期不符合，它将保持默认的 "gone" 状态。
+    }
+
+
     private void openDirectoryPicker(int requestCode) {
-        // 使用 SAF (Storage Access Framework) 选择文件夹
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         startActivityForResult(intent, requestCode);
@@ -68,18 +88,19 @@ public class MainActivity extends AppCompatActivity {
         if (resultCode == Activity.RESULT_OK && data != null) {
             Uri treeUri = data.getData();
             if (treeUri != null) {
-                // 关键步骤：持久化权限，否则服务重启后失效
                 getContentResolver().takePersistableUriPermission(
                         treeUri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 );
 
+                String pathName = getPathSegment(treeUri);
+
                 if (requestCode == REQUEST_CODE_SOURCE) {
                     sourceUri = treeUri;
-                    tvSourcePath.setText(treeUri.toString());
+                    tvSourcePath.setText("已选择: " + pathName);
                 } else if (requestCode == REQUEST_CODE_TARGET) {
                     targetUri = treeUri;
-                    tvTargetPath.setText(treeUri.toString());
+                    tvTargetPath.setText("已选择: " + pathName);
                 }
 
                 Toast.makeText(this, "文件夹已选择并授权。", Toast.LENGTH_SHORT).show();
@@ -87,6 +108,23 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+    private String getPathSegment(Uri uri) {
+        DocumentFile doc = DocumentFile.fromTreeUri(this, uri);
+        if (doc != null && doc.getName() != null) {
+            return doc.getName();
+        }
+
+        String path = uri.getPath();
+        if (path != null) {
+            int index = path.lastIndexOf(':');
+            if (index != -1 && index < path.length() - 1) {
+                return path.substring(index + 1);
+            }
+        }
+        return "未知路径";
+    }
+
 
     private void checkButtons() {
         boolean ready = (sourceUri != null && targetUri != null);
@@ -98,7 +136,6 @@ public class MainActivity extends AppCompatActivity {
         serviceIntent.putExtra("SOURCE_URI", sourceUri.toString());
         serviceIntent.putExtra("TARGET_URI", targetUri.toString());
 
-        // API 26 (Oreo) 及以上必须使用 startForegroundService
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
@@ -107,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnStart.setEnabled(false);
         btnStop.setEnabled(true);
-        appendLog("服务启动指令已发送。");
+        Toast.makeText(this, "监控服务已启动！", Toast.LENGTH_SHORT).show();
     }
 
     private void stopServiceFunc() {
@@ -117,29 +154,6 @@ public class MainActivity extends AppCompatActivity {
 
         btnStart.setEnabled(true);
         btnStop.setEnabled(false);
-        appendLog("服务停止指令已发送。");
-    }
-
-    public void appendLog(String msg) {
-        String time = android.text.format.DateFormat.format("HH:mm:ss", System.currentTimeMillis()).toString();
-        tvLog.append(time + " " + msg + "\n");
-        tvLog.post(() -> {
-            View parent = (View) tvLog.getParent();
-            if(parent != null) parent.scrollTo(0, tvLog.getBottom());
-        });
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (logReceiver != null) unregisterReceiver(logReceiver);
-    }
-
-    class LogReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String log = intent.getStringExtra("log");
-            if (log != null) appendLog(log);
-        }
+        Toast.makeText(this, "监控服务已停止。", Toast.LENGTH_SHORT).show();
     }
 }
