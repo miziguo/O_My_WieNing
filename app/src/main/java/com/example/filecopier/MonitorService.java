@@ -16,6 +16,7 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 import androidx.documentfile.provider.DocumentFile;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,6 +28,11 @@ public class MonitorService extends Service {
     private static final String CHANNEL_ID = "FileMonitorChannel";
     private static final int NOTIFICATION_ID = 1;
     private static final long RESTART_DELAY_MS = 5000;
+
+    // 广播 Action 和 Extras
+    public static final String ACTION_SERVICE_STATUS = "com.example.filecopier.SERVICE_STATUS";
+    public static final String EXTRA_RUNNING = "running_status";
+    public static final String EXTRA_MESSAGE = "status_message"; // 新增：用于悬浮窗显示消息
 
     private static volatile boolean serviceIsRunning = false;
 
@@ -68,20 +74,36 @@ public class MonitorService extends Service {
         if (srcStr != null && dstStr != null && !serviceIsRunning) {
             serviceIsRunning = true;
 
+            // 立即发送启动广播
+            sendServiceStatusBroadcast(true, "监控已启动...");
+
             new Thread(() -> {
                 Uri src = Uri.parse(srcStr);
                 Uri dst = Uri.parse(dstStr);
 
                 initKnownFiles(src);
 
+                String currentMsg = "监控中：一切静悄悄";
                 while (serviceIsRunning) {
                     try {
                         boolean copied = checkAndCopy(src, dst);
-                        updateNotification(copied ? "刚刚复制了新文件！" : "监控中：一切静悄悄");
+
+                        String newMsg = copied ? "刚刚复制了新文件！" : "监控中：一切静悄悄";
+                        if (!newMsg.equals(currentMsg)) {
+                            currentMsg = newMsg;
+                            updateNotification(currentMsg);
+                            sendServiceStatusBroadcast(true, currentMsg);
+                        } else if (copied) {
+                            // 如果是复制事件，也发送广播更新悬浮窗颜色
+                            sendServiceStatusBroadcast(true, currentMsg);
+                        }
+
                         Thread.sleep(2000);
                     } catch (Exception e) {
                         Log.e(TAG, "Monitor loop failed, stopping service.", e);
-                        updateNotification("发生致命错误，监控暂停！请检查权限。");
+                        String errorMsg = "发生致命错误，监控暂停！请检查权限。";
+                        updateNotification(errorMsg);
+                        sendServiceStatusBroadcast(false, errorMsg); // 错误停止广播
                         serviceIsRunning = false;
                     }
                 }
@@ -90,8 +112,18 @@ public class MonitorService extends Service {
         return START_STICKY;
     }
 
+    /** 发送服务运行状态给 MainActivity */
+    private void sendServiceStatusBroadcast(boolean isRunning, String message) {
+        Intent intent = new Intent(ACTION_SERVICE_STATUS);
+        intent.putExtra(EXTRA_RUNNING, isRunning);
+        intent.putExtra(EXTRA_MESSAGE, message);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        Log.d(TAG, "Sent status broadcast: " + isRunning + ", Msg: " + message);
+    }
+
+    // ... (initKnownFiles, checkAndCopy 等 I/O 逻辑保持不变) ...
+
     private void initKnownFiles(Uri uri) {
-        // ... (保持不变)
         DocumentFile root = DocumentFile.fromTreeUri(this, uri);
         if (root != null && root.exists()) {
             knownFiles.clear();
@@ -269,6 +301,8 @@ public class MonitorService extends Service {
         serviceIsRunning = false;
         if (nm != null) nm.cancel(NOTIFICATION_ID);
         stopForeground(true);
+
+        sendServiceStatusBroadcast(false, "服务已停止"); // 停止广播
 
         super.onDestroy();
     }

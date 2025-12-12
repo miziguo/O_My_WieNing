@@ -2,8 +2,10 @@ package com.example.filecopier;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.UriPermission;
 import android.content.pm.PackageManager;
@@ -11,13 +13,13 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
-import android.provider.Settings; // 导入 Settings
+import android.provider.Settings;
 import android.util.Log;
-import android.view.Gravity;      // 导入 Gravity
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.WindowManager; // 导入 WindowManager
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,6 +29,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.documentfile.provider.DocumentFile;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.Calendar;
 import java.util.List;
@@ -38,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_SOURCE = 1001;
     private static final int REQUEST_CODE_TARGET = 1002;
     private static final int REQUEST_PERMISSION_NOTIFY = 2001;
-    private static final int REQUEST_OVERLAY_PERMISSION = 3001; // 悬浮窗请求码
+    private static final int REQUEST_OVERLAY_PERMISSION = 3001;
 
     private static final String PREFS_NAME = "AppPrefs";
     private static final String KEY_SOURCE_URI = "sourceUri";
@@ -52,7 +55,9 @@ public class MainActivity extends AppCompatActivity {
     // --- 悬浮窗相关成员变量 ---
     private WindowManager windowManager;
     private View floatingView;
-    // --------------------------
+
+    // --- 广播接收器 ---
+    private ServiceStatusReceiver statusReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,27 +89,33 @@ public class MainActivity extends AppCompatActivity {
 
         checkButtons();
         checkDateEasterEgg();
-        updateServiceStatus();
 
-        // 如果服务已经在后台运行，但应用被杀或重启，尝试重新显示悬浮窗
+        statusReceiver = new ServiceStatusReceiver(); // 初始化接收器
+
+        // 如果服务已经在后台运行，尝试重新显示悬浮窗
         if (MonitorService.isRunning() && isOverlayPermissionGranted()) {
-            showFloatingWindow("监控正在运行...", 0x80000000); // 默认灰色
+            showFloatingWindow("监控正在运行...", 0x80000000);
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        // 注册广播接收器
+        IntentFilter filter = new IntentFilter(MonitorService.ACTION_SERVICE_STATUS);
+        LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter);
+
         checkBatteryOptimizationStatus();
         checkOverlayPermissionStatus();
         updateServiceStatus();
     }
 
     @Override
-    protected void onDestroy() {
-        // 确保应用主界面关闭时，如果服务还在运行，悬浮窗不会被销毁
-        // 只有当服务停止时，才应该调用 hideFloatingWindow()
-        super.onDestroy();
+    protected void onPause() {
+        super.onPause();
+        // 取消注册广播接收器
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver);
     }
 
     // --- 悬浮窗管理 ---
@@ -113,10 +124,6 @@ public class MainActivity extends AppCompatActivity {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this);
     }
 
-    /** * 显示悬浮窗。
-     * @param message 悬浮窗上显示的文本
-     * @param bgColor 悬浮窗背景颜色 (例如 0x80000000 半透明黑色)
-     */
     private void showFloatingWindow(String message, int bgColor) {
         if (!isOverlayPermissionGranted()) {
             Log.w(TAG, "Cannot show floating window: Permission denied.");
@@ -126,7 +133,6 @@ public class MainActivity extends AppCompatActivity {
         if (floatingView == null) {
             windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
-            // 悬浮窗内容：一个简单的 TextView
             TextView textView = new TextView(this);
             textView.setText(message);
             textView.setBackgroundColor(bgColor);
@@ -136,12 +142,10 @@ public class MainActivity extends AppCompatActivity {
             textView.setGravity(Gravity.CENTER);
             floatingView = textView;
 
-            // 设置 LayoutParams
             int layoutType;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
             } else {
-                // TYPE_PHONE 在低版本中也能工作
                 layoutType = WindowManager.LayoutParams.TYPE_PHONE;
             }
 
@@ -149,12 +153,11 @@ public class MainActivity extends AppCompatActivity {
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
                     layoutType,
-                    // FLAG_NOT_FOCUSABLE: 不拦截点击事件
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
                     android.graphics.PixelFormat.TRANSLUCENT);
 
             params.gravity = Gravity.TOP | Gravity.LEFT;
-            params.x = 50; // 初始位置
+            params.x = 50;
             params.y = 100;
 
             try {
@@ -163,7 +166,6 @@ public class MainActivity extends AppCompatActivity {
                 Log.e(TAG, "Error adding floating window: ", e);
             }
         } else {
-            // 如果已存在，仅更新内容
             if (floatingView instanceof TextView) {
                 ((TextView) floatingView).setText(message);
                 floatingView.setBackgroundColor(bgColor);
@@ -171,7 +173,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** 隐藏并移除悬浮窗 */
     private void hideFloatingWindow() {
         if (floatingView != null && windowManager != null) {
             try {
@@ -188,7 +189,6 @@ public class MainActivity extends AppCompatActivity {
     // --- 权限/稳定相关逻辑 ---
 
     private void checkBatteryOptimizationStatus() {
-        // ... (保持不变，用于指导用户)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
@@ -202,7 +202,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** 检查悬浮窗权限状态并更新按钮 */
     private void checkOverlayPermissionStatus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!isOverlayPermissionGranted()) {
@@ -216,10 +215,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** 请求忽略电池优化权限 */
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // ... (保持不变)
             Intent intent = new Intent();
             String packageName = getPackageName();
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -241,7 +238,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** 跳转到悬浮窗权限设置 */
     private void requestOverlayPermissionGuide() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isOverlayPermissionGranted()) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -254,7 +250,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // --- 服务状态更新 ---
+    // --- 服务状态更新 (依赖广播) ---
     private void updateServiceStatus() {
         if (MonitorService.isRunning()) {
             tvServiceStatus.setText("状态: 🟢 监控正在运行");
@@ -262,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
             btnStop.setEnabled(true);
         } else {
             tvServiceStatus.setText("状态: 🔴 服务未运行");
-            checkButtons();
+            checkButtons(); // 检查URI是否设置，以决定是否启用启动按钮
             btnStop.setEnabled(false);
         }
     }
@@ -275,14 +271,14 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // 1. 启动悬浮窗（如果有权限）
+        btnStart.setEnabled(false); // 立即禁用开始按钮，防止双击
+
         if (isOverlayPermissionGranted()) {
-            showFloatingWindow("监控中...", 0x80000000); // 启动时显示默认状态
+            showFloatingWindow("监控中...", 0x80000000);
         } else {
             Toast.makeText(this, "悬浮窗权限未授予，后台运行可能不稳定！", Toast.LENGTH_LONG).show();
         }
 
-        // 2. 启动服务
         Intent serviceIntent = new Intent(this, MonitorService.class);
         serviceIntent.putExtra("SOURCE_URI", sourceUri.toString());
         serviceIntent.putExtra("TARGET_URI", targetUri.toString());
@@ -292,22 +288,49 @@ public class MainActivity extends AppCompatActivity {
         } else {
             startService(serviceIntent);
         }
-        updateServiceStatus();
+        // 按钮状态将由 MonitorService 启动后发出的广播来更新
     }
 
     private void stopServiceFunc() {
-        // 1. 停止服务
+        btnStop.setEnabled(false); // 立即禁用停止按钮，防止双击
+
         stopService(new Intent(this, MonitorService.class));
 
-        // 2. 隐藏悬浮窗
         hideFloatingWindow();
 
-        updateServiceStatus();
-        Toast.makeText(this, "监控服务已停止。", Toast.LENGTH_SHORT).show();
+        // 按钮状态将由 MonitorService 停止后发出的广播来更新
+        Toast.makeText(this, "正在停止监控服务...", Toast.LENGTH_SHORT).show();
+    }
+
+    // --- 广播接收器 ---
+
+    /** 用于接收 MonitorService 状态更新的广播接收器 */
+    private class ServiceStatusReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (MonitorService.ACTION_SERVICE_STATUS.equals(intent.getAction())) {
+                boolean isRunning = intent.getBooleanExtra(MonitorService.EXTRA_RUNNING, false);
+
+                // 收到服务状态变更，立即更新 UI
+                updateServiceStatus();
+
+                // 如果服务在运行，则根据状态更新悬浮窗提示
+                if (isRunning && isOverlayPermissionGranted()) {
+                    String statusMsg = intent.getStringExtra(MonitorService.EXTRA_MESSAGE);
+                    if (statusMsg != null) {
+                        // 红色：错误；绿色：复制成功；灰色：监控中
+                        int color = statusMsg.contains("致命错误") ? 0x80FF0000 :
+                                statusMsg.contains("复制了新文件") ? 0x8000FF00 : 0x80000000;
+                        showFloatingWindow(statusMsg, color);
+                    }
+                } else if (!isRunning) {
+                    hideFloatingWindow();
+                }
+            }
+        }
     }
 
     // --- 辅助方法 (loadPersistedUris, onActivityResult, getFolderName, checkButtons, openDirectoryPicker) ---
-    // ... (保持与上一轮代码一致) ...
     private void openDirectoryPicker(int requestCode) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -351,7 +374,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_OVERLAY_PERMISSION) {
-            checkOverlayPermissionStatus(); // 检查悬浮窗权限是否已授予
+            checkOverlayPermissionStatus();
         }
         if (resultCode == Activity.RESULT_OK && data != null) {
             Uri treeUri = data.getData();

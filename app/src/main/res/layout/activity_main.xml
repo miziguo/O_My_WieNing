@@ -29,7 +29,7 @@
                 android:text="监控文件夹设置"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="@color/black" />
+                android:textColor="@android:color/black" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -106,7 +106,7 @@
                 android:text="操作与状态"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="@color/black" />
+                android:textColor="@android:color/black" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -140,7 +140,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="状态: 服务未运行"
-                android:textColor="@color/black"
+                android:textColor="@android:color/black"
                 android:textStyle="italic" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
@@ -169,7 +169,7 @@
             android:id="@+id/btnOverlayPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔔 解决厂商限制 (点击检查并授予权限)"
+            android:text="🔔 启用悬浮窗（稳定后台必备）"
             android:backgroundTint="#03A9F4"
             android:textColor="@android:color/white"
             android:visibility="gone"/>
