@@ -26,9 +26,11 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import com.example.filecopier.BuildConfig;
 
 import java.io.File;
 import java.util.Calendar;
@@ -47,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView tvSourcePath, tvTargetPath, tvEasterEgg, tvServiceStatus;
     private Button btnSelectSource, btnSelectTarget, btnStart, btnStop, btnBatteryOptimization, btnStoragePermission;
+    private CardView cvPermissions;
 
     private String sourcePath = null;
     private String targetPath = null;
@@ -57,6 +60,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setTitle(R.string.app_name);
+        }
 
         // 1. 初始化UI (确保与 activity_main.xml 匹配)
         tvSourcePath = findViewById(R.id.tvSourcePath);
@@ -70,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
         // 确保使用正确的 ID
         btnStoragePermission = findViewById(R.id.btnOverlayPermission);
+        cvPermissions = findViewById(R.id.cvPermissions);
 
         requestNotificationPermission();
         loadPersistedPaths();
@@ -87,6 +94,8 @@ public class MainActivity extends AppCompatActivity {
         checkDateEasterEgg();
 
         statusReceiver = new ServiceStatusReceiver();
+        TextView versionView = findViewById(R.id.version);
+        versionView.setText("当前版本: " + BuildConfig.VERSION_NAME);
     }
 
     @Override
@@ -98,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
 
         checkBatteryOptimizationStatus();
         checkStoragePermissionStatus();
+        checkAllPermissions();
         updateServiceStatus();
     }
 
@@ -182,14 +192,32 @@ public class MainActivity extends AppCompatActivity {
     private void checkStoragePermissionStatus() {
         if (!isManageExternalStorageGranted()) {
             btnStoragePermission.setVisibility(View.VISIBLE);
-            btnStoragePermission.setText("📁 启用全部文件访问权限（核心功能）");
+            btnStoragePermission.setText("启用全部文件访问权限（核心功能）");
             btnStoragePermission.setOnClickListener(v -> requestExternalStoragePermissionGuide());
         } else if (!isOverlayPermissionGranted()){
             btnStoragePermission.setVisibility(View.VISIBLE);
-            btnStoragePermission.setText("🔔 启用悬浮窗（稳定后台必备）");
+            btnStoragePermission.setText("启用悬浮窗（稳定后台必备）");
             btnStoragePermission.setOnClickListener(v -> requestOverlayPermissionGuide());
         } else {
             btnStoragePermission.setVisibility(View.GONE);
+        }
+    }
+
+    private void checkAllPermissions() {
+        boolean allGranted = true;
+        if (!isManageExternalStorageGranted()) allGranted = false;
+        if (!isOverlayPermissionGranted()) allGranted = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                allGranted = false;
+            }
+        }
+        
+        if (allGranted) {
+            cvPermissions.setVisibility(View.GONE);
+        } else {
+            cvPermissions.setVisibility(View.VISIBLE);
         }
     }
 
@@ -227,9 +255,10 @@ public class MainActivity extends AppCompatActivity {
     private void checkBatteryOptimizationStatus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            // 修改检查逻辑：只有在不在白名单中时才显示
             if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
                 btnBatteryOptimization.setVisibility(View.VISIBLE);
-                btnBatteryOptimization.setText("🔴 修复后台运行问题 (点击设置白名单)");
+                btnBatteryOptimization.setText("修复后台运行问题 (点击手动设置“无限制”)");
             } else {
                 btnBatteryOptimization.setVisibility(View.GONE);
             }
@@ -240,23 +269,21 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent intent = new Intent();
-            String packageName = getPackageName();
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-
-            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
-                intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + packageName));
+            // 直接跳转到应用详情页，引导用户手动设置，因为在部分机型上标准弹窗无法修改厂商的“智能后台”设置
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            try {
+                startActivity(intent);
+                Toast.makeText(this, "请在“电池”或“省电策略”中手动选择“无限制”", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                // 如果跳转详情页失败，尝试使用标准的忽略电池优化申请
+                Intent requestIntent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                requestIntent.setData(Uri.parse("package:" + getPackageName()));
                 try {
-                    startActivity(intent);
-                } catch (Exception e) {
-                    Toast.makeText(this, "请手动前往系统设置 > 电池 > 忽略优化列表，将本应用加入白名单。", Toast.LENGTH_LONG).show();
-                    Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                    fallback.setData(Uri.parse("package:" + packageName));
-                    startActivity(fallback);
+                    startActivity(requestIntent);
+                } catch (Exception ex) {
+                    Toast.makeText(this, "无法打开设置页面，请手动前往系统设置。", Toast.LENGTH_LONG).show();
                 }
-            } else {
-                Toast.makeText(this, "应用已在白名单中，无需再次设置。", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -265,11 +292,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateServiceStatus() {
         if (MonitorService.isRunning()) {
-            tvServiceStatus.setText("状态: 🟢 监控正在运行");
+            tvServiceStatus.setText("状态: 服务正在运行");
             btnStart.setEnabled(false);
             btnStop.setEnabled(true);
         } else {
-            tvServiceStatus.setText("状态: 🔴 服务未运行");
+            tvServiceStatus.setText("状态: 服务未运行");
             checkButtons();
             btnStop.setEnabled(false);
         }
@@ -347,8 +374,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        // 如果是电池优化的请求返回，我们也检查一下
+        // 虽然 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 无法通过 startActivityForResult 获得可靠结果
+        // 但我们仍然可以在这里刷新 UI
         if (requestCode == REQUEST_OVERLAY_PERMISSION || requestCode == REQUEST_MANAGE_EXTERNAL_STORAGE) {
             checkStoragePermissionStatus();
+            checkAllPermissions();
         }
     }
 
@@ -393,7 +424,10 @@ public class MainActivity extends AppCompatActivity {
     private void checkDateEasterEgg() {
         Calendar c = Calendar.getInstance();
         if (c.get(Calendar.MONTH) == Calendar.JUNE && c.get(Calendar.DAY_OF_MONTH) == 4) {
-            if (tvEasterEgg != null) tvEasterEgg.setVisibility(View.VISIBLE);
+            if (tvEasterEgg != null) {
+                tvEasterEgg.setText("铭记历史，勿忘六四");
+                tvEasterEgg.setVisibility(View.VISIBLE);
+            }
         }
     }
 }

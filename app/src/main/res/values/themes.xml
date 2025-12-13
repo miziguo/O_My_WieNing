@@ -6,4 +6,28 @@
     </style>
 
     <style name="Theme.FileCopier" parent="Base.Theme.FileCopier" />
+
+    <!-- 修复设置页面标题不显示的问题：使用 DarkActionBar 主题，使文字变为白色 -->
+    <style name="Theme.FileCopier.Settings" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorAccent">@color/white</item>
+        <item name="titleTextColor">@color/white</item>
+    </style>
+
+    <!-- 新增：MainActivity 专用主题，用于自定义弹出菜单背景和黑色 ActionBar -->
+    <style name="Theme.FileCopier.Main" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorAccent">@color/white</item>
+        <item name="titleTextColor">@color/white</item>
+        <!-- 指定弹出菜单的主题 -->
+        <item name="actionBarPopupTheme">@style/Theme.FileCopier.Popup</item>
+    </style>
+
+    <!-- 新增：弹出菜单样式 (黑色背景，白色文字) -->
+    <style name="Theme.FileCopier.Popup" parent="ThemeOverlay.AppCompat.Dark">
+        <item name="android:colorBackground">@color/black</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
 </resources>

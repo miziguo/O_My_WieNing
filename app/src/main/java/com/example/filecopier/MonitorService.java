@@ -207,6 +207,9 @@ public class MonitorService extends Service {
                     Log.i(TAG, "WatchService loop interrupted, stopping gracefully.");
                     // 允许线程自然退出，不报告错误
 
+                } catch (java.nio.file.ClosedWatchServiceException e) {
+                    // 当 watcher.close() 被调用时，poll 会抛出此异常
+                    Log.i(TAG, "WatchService closed, stopping gracefully.");
                 } catch (java.nio.file.AccessDeniedException e) {
                     handleFatalError("访问被拒绝。请确保已授予 '所有文件访问权限'。", e);
                 } catch (Exception e) {

@@ -9,12 +9,14 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText; // 导入 EditText
 import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class SettingsActivity extends AppCompatActivity {
@@ -35,6 +37,7 @@ public class SettingsActivity extends AppCompatActivity {
     // --- 新增成员变量 ---
     private Switch switchContentFilter;
     private EditText etFilterKeywords;
+    private Button btnAbout;
     // --------------------
 
     @Override
@@ -44,8 +47,8 @@ public class SettingsActivity extends AppCompatActivity {
 
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
-            actionBar.setTitle("监控设置");
             actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setTitle("设置"); // 设置 Toolbar 上的标题
         }
 
         sharedPrefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -57,11 +60,13 @@ public class SettingsActivity extends AppCompatActivity {
         // --- 初始化新 UI ---
         switchContentFilter = findViewById(R.id.switchContentFilter);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
+        btnAbout = findViewById(R.id.btnAbout);
         // --------------------
 
         setupOverwriteModeSpinner();
         setupDeleteMirrorSwitch();
         setupContentFilter(); // 调用新的设置方法
+        setupAboutButton();
     }
 
     private void setupOverwriteModeSpinner() {
@@ -135,6 +140,25 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
     // ------------------------------------
+
+    private void setupAboutButton() {
+        btnAbout.setOnClickListener(v -> {
+            // 1. 创建对话框但不直接链式调用 show()
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("关于")
+                    .setMessage("你好\n你好")
+                    .setPositiveButton("确定", null)
+                    .create();
+
+            // 2. 显示对话框
+            dialog.show();
+
+            // 3. 获取确定按钮并修改颜色为黑色
+            // 注意：这行代码必须在 dialog.show() 之后执行
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(0xFF000000);
+        });
+    }
+
 
 
     @Override

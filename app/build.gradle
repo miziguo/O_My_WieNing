@@ -12,7 +12,7 @@ android {
         minSdkVersion 26
         targetSdk 34
         versionCode 8
-        versionName "Alpha 1.9"
+        versionName "Alpha 1.9.2"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -22,6 +22,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    buildFeatures {
+        // 确保这一行是 true
+        buildConfig true
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17 // 使用您的 JDK 版本

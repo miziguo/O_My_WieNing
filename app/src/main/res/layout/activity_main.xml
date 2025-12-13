@@ -17,7 +17,8 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#f0f0f0">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -50,7 +51,8 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#f0f0f0">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -90,6 +92,7 @@
                         android:textSize="12sp"
                         android:minHeight="0dp"
                         android:minWidth="0dp"
+                        android:backgroundTint="#000000"
                         android:padding="8dp"/>
                 </LinearLayout>
 
@@ -118,6 +121,7 @@
                         android:textSize="12sp"
                         android:minHeight="0dp"
                         android:minWidth="0dp"
+                        android:backgroundTint="#000000"
                         android:padding="8dp"/>
                 </LinearLayout>
             </LinearLayout>
@@ -128,7 +132,8 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#f0f0f0">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -138,13 +143,13 @@
 
                 <Button
                     android:id="@+id/btnStart"
-                    style="@style/Widget.AppCompat.Button.Colored"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="开始监控"
                     android:enabled="false"
-                    android:backgroundTint="@color/design_default_color_primary"/>
+                    android:textColor="@android:color/white"
+                    android:backgroundTint="#000000"/>
 
                 <Button
                     android:id="@+id/btnStop"
@@ -154,16 +159,19 @@
                     android:layout_marginStart="8dp"
                     android:text="停止监控"
                     android:enabled="false"
-                    android:backgroundTint="@color/design_default_color_error"/>
+                    android:textColor="@android:color/white"
+                    android:backgroundTint="#000000"/>
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/cvPermissions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#f0f0f0">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -189,7 +197,6 @@
                     android:backgroundTint="#FFCC00"
                     android:textColor="#000000"
                     android:padding="12dp"
-                    android:drawableStart="@android:drawable/ic_dialog_alert"
                     android:drawableTint="#000000"/>
 
                 <Button
@@ -203,9 +210,33 @@
                     android:backgroundTint="#FFCC00"
                     android:textColor="#000000"
                     android:padding="12dp"
-                    android:drawableStart="@android:drawable/ic_dialog_alert"
                     android:drawableTint="#000000"/>
 
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#f0f0f0">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/version"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
