@@ -11,8 +11,8 @@ android {
         // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
         minSdkVersion 26
         targetSdk 34
-        versionCode 8
-        versionName "Alpha 1.9.2"
+        versionCode 10
+        versionName "Alpha 2.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

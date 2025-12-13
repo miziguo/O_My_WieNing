@@ -1,21 +1,19 @@
 package com.example.filecopier;
 
 import android.Manifest;
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -24,13 +22,14 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-import com.example.filecopier.BuildConfig;
 
 import java.io.File;
 import java.util.Calendar;
@@ -60,33 +59,42 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 设置 ActionBar
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle(R.string.app_name);
+            getSupportActionBar().setBackgroundDrawable(new ColorDrawable(0xFF000000)); // 背景黑色
         }
 
-        // 1. 初始化UI (确保与 activity_main.xml 匹配)
+        // 1. 初始化UI
         tvSourcePath = findViewById(R.id.tvSourcePath);
         tvTargetPath = findViewById(R.id.tvTargetPath);
         tvEasterEgg = findViewById(R.id.tvEasterEgg);
         tvServiceStatus = findViewById(R.id.tv_service_status);
+
         btnSelectSource = findViewById(R.id.btnSelectSource);
         btnSelectTarget = findViewById(R.id.btnSelectTarget);
+
         btnStart = findViewById(R.id.btnStart);
         btnStop = findViewById(R.id.btnStop);
+
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
-        // 确保使用正确的 ID
-        btnStoragePermission = findViewById(R.id.btnOverlayPermission);
+        btnStoragePermission = findViewById(R.id.btnOverlayPermission); // 注意 XML ID
         cvPermissions = findViewById(R.id.cvPermissions);
 
+        // 2. 权限请求和路径加载
         requestNotificationPermission();
         loadPersistedPaths();
 
-        // 2. 绑定点击事件：现在弹出输入框
+        // 3. 绑定点击事件
         btnSelectSource.setOnClickListener(v -> showPathInputDialog(KEY_SOURCE_PATH, "源文件夹路径"));
         btnSelectTarget.setOnClickListener(v -> showPathInputDialog(KEY_TARGET_PATH, "目标文件夹路径"));
 
         btnStart.setOnClickListener(v -> startServiceFunc());
+
+        // ★★★ 修复停止按钮：发送 ACTION_STOP ★★★
         btnStop.setOnClickListener(v -> stopServiceFunc());
+
         btnBatteryOptimization.setOnClickListener(v -> requestIgnoreBatteryOptimizations());
         btnStoragePermission.setOnClickListener(v -> requestExternalStoragePermissionGuide());
 
@@ -94,14 +102,19 @@ public class MainActivity extends AppCompatActivity {
         checkDateEasterEgg();
 
         statusReceiver = new ServiceStatusReceiver();
+
         TextView versionView = findViewById(R.id.version);
-        versionView.setText("当前版本: " + BuildConfig.VERSION_NAME);
+        if (versionView != null) {
+            versionView.setText("当前版本: " + BuildConfig.VERSION_NAME);
+        }
+
+        // 4. 显示欢迎弹窗
+        showWelcomeDialog();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
         IntentFilter filter = new IntentFilter(MonitorService.ACTION_SERVICE_STATUS);
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter);
 
@@ -117,9 +130,24 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver);
     }
 
-    /**
-     * 弹出对话框让用户输入文件夹绝对路径
-     */
+    // --- 菜单相关 ---
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    // --- 路径输入对话框 ---
     private void showPathInputDialog(String key, String title) {
         final EditText input = new EditText(this);
         String currentPath = key.equals(KEY_SOURCE_PATH) ? sourcePath : targetPath;
@@ -129,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
             input.setText(Environment.getExternalStorageDirectory().getAbsolutePath() + "/");
         }
 
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage("请输入绝对路径，例如: /storage/emulated/0/MyFolder")
                 .setView(input)
@@ -140,20 +168,27 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // 确保路径以斜杠开头
                     if (!path.startsWith("/")) {
                         path = "/" + path;
                     }
 
                     File dir = new File(path);
                     if (!dir.exists()) {
-                        Toast.makeText(this, "警告：路径不存在，请确认路径是否正确且具有访问权限。", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "警告：路径不存在，请确认路径是否正确。", Toast.LENGTH_LONG).show();
                     }
 
                     savePath(key, path);
                 })
-                .setNegativeButton("取消", null)
-                .show();
+                .setNegativeButton("取消", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // 设置按钮颜色
+        Button btnAgree = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        Button btnDisagree = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (btnDisagree != null) btnDisagree.setTextColor(0xFF000000);
+        if (btnAgree != null) btnAgree.setTextColor(0xFF000000);
     }
 
     private void savePath(String key, String path) {
@@ -175,8 +210,69 @@ public class MainActivity extends AppCompatActivity {
         checkButtons();
     }
 
-    // --- 权限/稳定相关逻辑 ---
+    // --- 欢迎弹窗 (每次必弹 + 10s强制) ---
+    private void showWelcomeDialog() {
+        // 1. 检查是否是第一次运行
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isFirstRun = prefs.getBoolean("isFirstRun", true);
 
+        // 如果不是第一次运行，直接返回，不再弹窗
+        if (!isFirstRun) {
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("使用条款")
+                .setMessage("南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n\n©2023-2025 miziguo Studio")
+                .setCancelable(false) // 强制必须点击按钮
+                // 暂时不设置点击监听器，稍后在 show() 之后获取按钮来设置，以防止倒计时未结束就被点击
+                .setNegativeButton("我同意 (10s)", null)
+                .setPositiveButton("滚！", (dialog, which) -> {
+                    finish(); // 退出软件
+                    // System.exit(0); // 彻底杀掉进程（可选）
+                });
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // 获取按钮实例
+        Button btnAgree = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        Button btnDisagree = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+
+        // 设置按钮颜色
+        btnDisagree.setTextColor(0xFFFF0000); // 红色
+        btnAgree.setTextColor(0xFF888888);    // 初始灰色，表示不可用
+
+        // 2. 初始禁用同意按钮
+        btnAgree.setEnabled(false);
+
+        // 3. 开始 10 秒倒计时
+        new android.os.CountDownTimer(10000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                // 更新按钮文字显示剩余秒数
+                btnAgree.setText("我同意 (" + (millisUntilFinished / 1000 + 1) + "s)");
+            }
+
+            @Override
+            public void onFinish() {
+                // 倒计时结束
+                btnAgree.setText("我同意");
+                btnAgree.setEnabled(true);
+                btnAgree.setTextColor(0xFF009900); // 变为绿色
+
+                // 重新绑定点击事件（因为之前设为null了，或者为了安全起见）
+                btnAgree.setOnClickListener(v -> {
+                    // 4. 记录已经同意过条款
+                    prefs.edit().putBoolean("isFirstRun", false).apply();
+                    dialog.dismiss();
+                });
+            }
+        }.start();
+    }
+
+
+    // --- 权限/电池优化 ---
     private boolean isOverlayPermissionGranted() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this);
     }
@@ -192,11 +288,11 @@ public class MainActivity extends AppCompatActivity {
     private void checkStoragePermissionStatus() {
         if (!isManageExternalStorageGranted()) {
             btnStoragePermission.setVisibility(View.VISIBLE);
-            btnStoragePermission.setText("启用全部文件访问权限（核心功能）");
+            btnStoragePermission.setText("授予全部文件访问权限");
             btnStoragePermission.setOnClickListener(v -> requestExternalStoragePermissionGuide());
         } else if (!isOverlayPermissionGranted()){
             btnStoragePermission.setVisibility(View.VISIBLE);
-            btnStoragePermission.setText("启用悬浮窗（稳定后台必备）");
+            btnStoragePermission.setText("授予悬浮窗权限");
             btnStoragePermission.setOnClickListener(v -> requestOverlayPermissionGuide());
         } else {
             btnStoragePermission.setVisibility(View.GONE);
@@ -213,12 +309,8 @@ public class MainActivity extends AppCompatActivity {
                 allGranted = false;
             }
         }
-        
-        if (allGranted) {
-            cvPermissions.setVisibility(View.GONE);
-        } else {
-            cvPermissions.setVisibility(View.VISIBLE);
-        }
+
+        cvPermissions.setVisibility(allGranted ? View.GONE : View.VISIBLE);
     }
 
     private void requestExternalStoragePermissionGuide() {
@@ -229,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     startActivityForResult(intent, REQUEST_MANAGE_EXTERNAL_STORAGE);
                 } catch (Exception e) {
-                    Toast.makeText(this, "无法打开权限设置，请手动前往设置中开启。", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "无法打开权限设置", Toast.LENGTH_LONG).show();
                 }
             }
         } else {
@@ -247,7 +339,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION);
             } catch (Exception e) {
-                Toast.makeText(this, "无法打开权限设置，请手动开启悬浮窗权限。", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "无法打开悬浮窗权限设置", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -255,7 +347,6 @@ public class MainActivity extends AppCompatActivity {
     private void checkBatteryOptimizationStatus() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            // 修改检查逻辑：只有在不在白名单中时才显示
             if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
                 btnBatteryOptimization.setVisibility(View.VISIBLE);
                 btnBatteryOptimization.setText("修复后台运行问题 (点击手动设置“无限制”)");
@@ -269,37 +360,30 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // 直接跳转到应用详情页，引导用户手动设置，因为在部分机型上标准弹窗无法修改厂商的“智能后台”设置
+            // 直接跳应用详情页，引导手动修改
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.parse("package:" + getPackageName()));
             try {
                 startActivity(intent);
-                Toast.makeText(this, "请在“电池”或“省电策略”中手动选择“无限制”", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "请在“耗电管理”或“省电策略”中手动选择“无限制”", Toast.LENGTH_LONG).show();
             } catch (Exception e) {
-                // 如果跳转详情页失败，尝试使用标准的忽略电池优化申请
+                // 备用：标准弹窗
                 Intent requestIntent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 requestIntent.setData(Uri.parse("package:" + getPackageName()));
                 try {
                     startActivity(requestIntent);
                 } catch (Exception ex) {
-                    Toast.makeText(this, "无法打开设置页面，请手动前往系统设置。", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "无法打开设置页面", Toast.LENGTH_LONG).show();
                 }
             }
         }
     }
 
-    // --- 服务启动/停止 ---
+    // --- 服务控制 ---
 
     private void updateServiceStatus() {
-        if (MonitorService.isRunning()) {
-            tvServiceStatus.setText("状态: 服务正在运行");
-            btnStart.setEnabled(false);
-            btnStop.setEnabled(true);
-        } else {
-            tvServiceStatus.setText("状态: 服务未运行");
-            checkButtons();
-            btnStop.setEnabled(false);
-        }
+        // 由于服务状态是异步的，这里主要依赖广播接收器，但保留基础判断
+        // 如果想更准确，可以依赖 ServiceStatusReceiver
     }
 
     private void startServiceFunc() {
@@ -314,104 +398,56 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        btnStart.setEnabled(false);
-
         if (!isOverlayPermissionGranted()) {
-            Toast.makeText(this, "悬浮窗权限未授予，将无法显示实时状态。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "悬浮窗权限未授予，将无法显示实时状态。", Toast.LENGTH_SHORT).show();
+            // 不阻断，但提示
         }
 
-        Intent serviceIntent = new Intent(this, MonitorService.class);
-        serviceIntent.putExtra("SOURCE_PATH", sourcePath);
-        serviceIntent.putExtra("TARGET_PATH", targetPath);
+        btnStart.setEnabled(false);
+
+        Intent intent = new Intent(this, MonitorService.class);
+        intent.setAction(MonitorService.ACTION_START);
+        intent.putExtra("SOURCE_PATH", sourcePath);
+        intent.putExtra("TARGET_PATH", targetPath);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
+            startForegroundService(intent);
         } else {
-            startService(serviceIntent);
+            startService(intent);
         }
     }
 
     private void stopServiceFunc() {
-        btnStop.setEnabled(false);
+        // ★★★ 发送 ACTION_STOP 指令 ★★★
+        Intent intent = new Intent(this, MonitorService.class);
+        intent.setAction(MonitorService.ACTION_STOP);
+        startService(intent); // 触发 Service 的 onStartCommand 进行停止逻辑
 
-        stopService(new Intent(this, MonitorService.class));
-
-        Toast.makeText(this, "正在停止监控服务...", Toast.LENGTH_SHORT).show();
+        btnStop.setEnabled(false); // 暂时禁用，等待广播更新 UI
     }
 
-    // --- 广播接收器 ---
-
-    private class ServiceStatusReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (MonitorService.ACTION_SERVICE_STATUS.equals(intent.getAction())) {
-                updateServiceStatus();
-                // 可选：显示服务返回的消息
-                String message = intent.getStringExtra(MonitorService.EXTRA_MESSAGE);
-                if (message != null && !message.isEmpty() && !MonitorService.isRunning()) {
-                    Toast.makeText(context, "服务停止原因: " + message, Toast.LENGTH_LONG).show();
-                }
-            }
-        }
-    }
-
-    // --- 辅助方法 (路径处理) ---
+    // --- 辅助逻辑 ---
 
     private void loadPersistedPaths() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         sourcePath = prefs.getString(KEY_SOURCE_PATH, null);
         targetPath = prefs.getString(KEY_TARGET_PATH, null);
 
-        if (sourcePath != null) {
-            tvSourcePath.setText("源: " + getFolderName(sourcePath));
-        }
-        if (targetPath != null) {
-            tvTargetPath.setText("目标: " + getFolderName(targetPath));
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        // 如果是电池优化的请求返回，我们也检查一下
-        // 虽然 REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 无法通过 startActivityForResult 获得可靠结果
-        // 但我们仍然可以在这里刷新 UI
-        if (requestCode == REQUEST_OVERLAY_PERMISSION || requestCode == REQUEST_MANAGE_EXTERNAL_STORAGE) {
-            checkStoragePermissionStatus();
-            checkAllPermissions();
-        }
-    }
-
-    private String getFolderName(String path) {
-        if (path == null) return "未选择";
-        try {
-            File file = new File(path);
-            return file.getName().isEmpty() ? path : file.getName();
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting folder name from path: " + e.getMessage());
-        }
-        return "未知路径";
+        if (sourcePath != null) tvSourcePath.setText("源: " + getFolderName(sourcePath));
+        if (targetPath != null) tvTargetPath.setText("目标: " + getFolderName(targetPath));
     }
 
     private void checkButtons() {
-        btnStart.setEnabled(sourcePath != null && targetPath != null && !MonitorService.isRunning());
+        btnStart.setEnabled(sourcePath != null && targetPath != null);
     }
 
-    // --- 菜单和设置跳转 (已恢复) ---
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
-    }
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_settings) {
-            Intent intent = new Intent(this, SettingsActivity.class);
-            startActivity(intent);
-            return true;
+    private String getFolderName(String path) {
+        if (path == null) return "";
+        int lastSlash = path.lastIndexOf('/');
+        if (lastSlash != -1 && lastSlash < path.length() - 1) {
+            return path.substring(lastSlash + 1);
         }
-        return super.onOptionsItemSelected(item);
+        return path;
     }
 
     private void requestNotificationPermission() {
@@ -421,12 +457,60 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void checkDateEasterEgg() {
-        Calendar c = Calendar.getInstance();
-        if (c.get(Calendar.MONTH) == Calendar.JUNE && c.get(Calendar.DAY_OF_MONTH) == 4) {
-            if (tvEasterEgg != null) {
-                tvEasterEgg.setText("铭记历史，勿忘六四");
+        java.util.Calendar c = java.util.Calendar.getInstance();
+
+        // 判断是否是 6月4日 (注意：Java中月份是从0开始的，Calendar.JUNE 其实是 5)
+        boolean isJune4th = (c.get(java.util.Calendar.MONTH) == java.util.Calendar.JUNE)
+                && (c.get(java.util.Calendar.DAY_OF_MONTH) == 4);
+
+        if (tvEasterEgg != null) {
+            if (isJune4th) {
                 tvEasterEgg.setVisibility(View.VISIBLE);
+                // 这一天显示特定的文案
+                tvEasterEgg.setText("铭记历史，勿忘六四");
+            } else {
+                tvEasterEgg.setVisibility(View.GONE);
+            }
+        }
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_MANAGE_EXTERNAL_STORAGE) {
+            checkStoragePermissionStatus();
+            checkAllPermissions();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_MANAGE_EXTERNAL_STORAGE || requestCode == REQUEST_OVERLAY_PERMISSION) {
+            checkStoragePermissionStatus();
+            checkAllPermissions();
+        }
+    }
+
+    // 广播接收器：更新UI状态
+    private class ServiceStatusReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (MonitorService.ACTION_SERVICE_STATUS.equals(intent.getAction())) {
+                boolean isRunning = intent.getBooleanExtra(MonitorService.EXTRA_IS_RUNNING, false);
+                String msg = intent.getStringExtra(MonitorService.EXTRA_MESSAGE);
+
+                tvServiceStatus.setText(msg != null ? msg : (isRunning ? "服务正在运行" : "服务已停止"));
+                btnStart.setEnabled(!isRunning);
+                btnStop.setEnabled(isRunning);
+
+                // 如果已停止，重新检查按钮状态（防止路径未选好就被启用）
+                if (!isRunning) {
+                    checkButtons();
+                }
             }
         }
     }
