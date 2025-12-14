@@ -1,4 +1,4 @@
-package com.example.filecopier;
+package o.my.wiening;
 
 import org.junit.Test;
 

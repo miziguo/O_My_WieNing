@@ -1,4 +1,4 @@
-package com.example.filecopier;
+package o.my.wiening;
 
 import android.app.AlarmManager;
 import android.app.Notification;

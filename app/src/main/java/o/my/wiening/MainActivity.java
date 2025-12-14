@@ -1,4 +1,4 @@
-package com.example.filecopier;
+package o.my.wiening;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -14,9 +16,14 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -24,6 +31,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
@@ -32,7 +40,6 @@ import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.File;
-import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -54,17 +61,18 @@ public class MainActivity extends AppCompatActivity {
     private String targetPath = null;
 
     private ServiceStatusReceiver statusReceiver;
+    private SharedPreferences monitorSettings;
+    private String[] colorValues;
+    private String[] textColorValues;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 设置 ActionBar
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setTitle(R.string.app_name);
-            getSupportActionBar().setBackgroundDrawable(new ColorDrawable(0xFF000000)); // 背景黑色
-        }
+        monitorSettings = getSharedPreferences(SettingsActivity.PREF_NAME, Context.MODE_PRIVATE);
+        colorValues = getResources().getStringArray(R.array.theme_color_values);
+        textColorValues = getResources().getStringArray(R.array.text_color_values);
 
         // 1. 初始化UI
         tvSourcePath = findViewById(R.id.tvSourcePath);
@@ -79,8 +87,11 @@ public class MainActivity extends AppCompatActivity {
         btnStop = findViewById(R.id.btnStop);
 
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
-        btnStoragePermission = findViewById(R.id.btnOverlayPermission); // 注意 XML ID
+        btnStoragePermission = findViewById(R.id.btnOverlayPermission);
         cvPermissions = findViewById(R.id.cvPermissions);
+
+        // 应用主题颜色 (放在 UI 初始化之后)
+        applyThemeColors();
 
         // 2. 权限请求和路径加载
         requestNotificationPermission();
@@ -91,8 +102,6 @@ public class MainActivity extends AppCompatActivity {
         btnSelectTarget.setOnClickListener(v -> showPathInputDialog(KEY_TARGET_PATH, "目标文件夹路径"));
 
         btnStart.setOnClickListener(v -> startServiceFunc());
-
-        // ★★★ 修复停止按钮：发送 ACTION_STOP ★★★
         btnStop.setOnClickListener(v -> stopServiceFunc());
 
         btnBatteryOptimization.setOnClickListener(v -> requestIgnoreBatteryOptimizations());
@@ -115,6 +124,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // 每次恢复界面时重新应用主题颜色，以便从设置返回时立即生效
+        applyThemeColors();
+        
         IntentFilter filter = new IntentFilter(MonitorService.ACTION_SERVICE_STATUS);
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, filter);
 
@@ -124,13 +136,89 @@ public class MainActivity extends AppCompatActivity {
         updateServiceStatus();
     }
 
+    // --- 核心修复：安全获取颜色方法 ---
+    private int getThemeColorFromIndex(int index, String customKey) {
+        // 如果选中的是最后一项（自定义）
+        if (index == colorValues.length - 1) {
+            String customColor = monitorSettings.getString(customKey, "#FF000000");
+            try {
+                return Color.parseColor(customColor);
+            } catch (Exception e) {
+                return Color.BLACK; // 解析失败默认黑色，防止崩溃
+            }
+        } 
+        // 常规选项
+        else if (index >= 0 && index < colorValues.length) {
+            try {
+                return Color.parseColor(colorValues[index]);
+            } catch (Exception e) {
+                return Color.BLACK;
+            }
+        }
+        return Color.BLACK;
+    }
+
+    private void applyThemeColors() {
+        // 读取配置索引
+        int actionBarIndex = monitorSettings.getInt(SettingsActivity.KEY_ACTIONBAR_COLOR_INDEX, 7);
+        int buttonIndex = monitorSettings.getInt(SettingsActivity.KEY_BUTTON_COLOR_INDEX, 7);
+        int textColorIndex = monitorSettings.getInt(SettingsActivity.KEY_TEXT_COLOR_INDEX, 2);
+        
+        // 获取实际颜色值
+        int actionBarColor = getThemeColorFromIndex(actionBarIndex, SettingsActivity.KEY_CUSTOM_ACTIONBAR_COLOR);
+        int buttonColor = getThemeColorFromIndex(buttonIndex, SettingsActivity.KEY_CUSTOM_BUTTON_COLOR);
+        
+        int textColor = Color.WHITE;
+        if (textColorIndex >= 0 && textColorIndex < textColorValues.length) {
+            try {
+                textColor = Color.parseColor(textColorValues[textColorIndex]);
+            } catch (Exception e) { textColor = Color.WHITE; }
+        }
+
+        // 1. 设置 ActionBar 背景颜色和文字颜色
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setBackgroundDrawable(new ColorDrawable(actionBarColor));
+            
+            // 动态设置 Title 颜色
+            CharSequence title = actionBar.getTitle();
+            if (title == null) title = getString(R.string.app_name); // 兜底
+            
+            SpannableString text = new SpannableString(title);
+            text.setSpan(new ForegroundColorSpan(textColor), 0, text.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            actionBar.setTitle(text);
+        }
+
+        // 2. 设置状态栏颜色 (同步 ActionBar 颜色)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(actionBarColor);
+        }
+
+        // 3. 设置按钮颜色
+        ColorStateList colorStateList = ColorStateList.valueOf(buttonColor);
+        applyButtonColor(btnStart, colorStateList, textColor);
+        applyButtonColor(btnStop, colorStateList, textColor);
+        applyButtonColor(btnSelectSource, colorStateList, textColor);
+        applyButtonColor(btnSelectTarget, colorStateList, textColor);
+    }
+
+    private void applyButtonColor(Button btn, ColorStateList backgroundTint, int textColor) {
+        if (btn != null) {
+            btn.setBackgroundTintList(backgroundTint);
+            btn.setTextColor(textColor);
+        }
+    }
+
     @Override
     protected void onPause() {
         super.onPause();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver);
     }
 
-    // --- 菜单相关 ---
+    // ... (后续方法保持不变: onCreateOptionsMenu, onOptionsItemSelected, showPathInputDialog, savePath, showWelcomeDialog 等) ...
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main_menu, menu);
@@ -147,7 +235,6 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    // --- 路径输入对话框 ---
     private void showPathInputDialog(String key, String title) {
         final EditText input = new EditText(this);
         String currentPath = key.equals(KEY_SOURCE_PATH) ? sourcePath : targetPath;
@@ -167,16 +254,13 @@ public class MainActivity extends AppCompatActivity {
                         Toast.makeText(this, "路径不能为空", Toast.LENGTH_SHORT).show();
                         return;
                     }
-
                     if (!path.startsWith("/")) {
                         path = "/" + path;
                     }
-
                     File dir = new File(path);
                     if (!dir.exists()) {
                         Toast.makeText(this, "警告：路径不存在，请确认路径是否正确。", Toast.LENGTH_LONG).show();
                     }
-
                     savePath(key, path);
                 })
                 .setNegativeButton("取消", null);
@@ -184,7 +268,6 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // 设置按钮颜色
         Button btnAgree = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
         Button btnDisagree = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
         if (btnDisagree != null) btnDisagree.setTextColor(0xFF000000);
@@ -210,13 +293,9 @@ public class MainActivity extends AppCompatActivity {
         checkButtons();
     }
 
-    // --- 欢迎弹窗 (每次必弹 + 10s强制) ---
     private void showWelcomeDialog() {
-        // 1. 检查是否是第一次运行
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         boolean isFirstRun = prefs.getBoolean("isFirstRun", true);
-
-        // 如果不是第一次运行，直接返回，不再弹窗
         if (!isFirstRun) {
             return;
         }
@@ -224,46 +303,34 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("使用条款")
                 .setMessage("南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n\n©2023-2025 miziguo Studio")
-                .setCancelable(false) // 强制必须点击按钮
-                // 暂时不设置点击监听器，稍后在 show() 之后获取按钮来设置，以防止倒计时未结束就被点击
+                .setCancelable(false)
                 .setNegativeButton("我同意 (10s)", null)
                 .setPositiveButton("滚！", (dialog, which) -> {
-                    finish(); // 退出软件
-                    // System.exit(0); // 彻底杀掉进程（可选）
+                    finish();
                 });
 
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // 获取按钮实例
         Button btnAgree = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
         Button btnDisagree = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
 
-        // 设置按钮颜色
-        btnDisagree.setTextColor(0xFFFF0000); // 红色
-        btnAgree.setTextColor(0xFF888888);    // 初始灰色，表示不可用
-
-        // 2. 初始禁用同意按钮
+        btnDisagree.setTextColor(0xFFFF0000);
+        btnAgree.setTextColor(0xFF888888);
         btnAgree.setEnabled(false);
 
-        // 3. 开始 10 秒倒计时
         new android.os.CountDownTimer(10000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                // 更新按钮文字显示剩余秒数
                 btnAgree.setText("我同意 (" + (millisUntilFinished / 1000 + 1) + "s)");
             }
 
             @Override
             public void onFinish() {
-                // 倒计时结束
                 btnAgree.setText("我同意");
                 btnAgree.setEnabled(true);
-                btnAgree.setTextColor(0xFF009900); // 变为绿色
-
-                // 重新绑定点击事件（因为之前设为null了，或者为了安全起见）
+                btnAgree.setTextColor(0xFF009900);
                 btnAgree.setOnClickListener(v -> {
-                    // 4. 记录已经同意过条款
                     prefs.edit().putBoolean("isFirstRun", false).apply();
                     dialog.dismiss();
                 });
@@ -271,8 +338,6 @@ public class MainActivity extends AppCompatActivity {
         }.start();
     }
 
-
-    // --- 权限/电池优化 ---
     private boolean isOverlayPermissionGranted() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this);
     }
@@ -309,7 +374,6 @@ public class MainActivity extends AppCompatActivity {
                 allGranted = false;
             }
         }
-
         cvPermissions.setVisibility(allGranted ? View.GONE : View.VISIBLE);
     }
 
@@ -360,14 +424,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // 直接跳应用详情页，引导手动修改
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent.setData(Uri.parse("package:" + getPackageName()));
             try {
                 startActivity(intent);
                 Toast.makeText(this, "请在“耗电管理”或“省电策略”中手动选择“无限制”", Toast.LENGTH_LONG).show();
             } catch (Exception e) {
-                // 备用：标准弹窗
                 Intent requestIntent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 requestIntent.setData(Uri.parse("package:" + getPackageName()));
                 try {
@@ -379,11 +441,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // --- 服务控制 ---
-
     private void updateServiceStatus() {
-        // 由于服务状态是异步的，这里主要依赖广播接收器，但保留基础判断
-        // 如果想更准确，可以依赖 ServiceStatusReceiver
     }
 
     private void startServiceFunc() {
@@ -391,25 +449,19 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "请先选择源文件夹和目标文件夹。", Toast.LENGTH_SHORT).show();
             return;
         }
-
         if (!isManageExternalStorageGranted()) {
             Toast.makeText(this, "请先授予'所有文件访问权限'。", Toast.LENGTH_SHORT).show();
             requestExternalStoragePermissionGuide();
             return;
         }
-
         if (!isOverlayPermissionGranted()) {
             Toast.makeText(this, "悬浮窗权限未授予，将无法显示实时状态。", Toast.LENGTH_SHORT).show();
-            // 不阻断，但提示
         }
-
         btnStart.setEnabled(false);
-
         Intent intent = new Intent(this, MonitorService.class);
         intent.setAction(MonitorService.ACTION_START);
         intent.putExtra("SOURCE_PATH", sourcePath);
         intent.putExtra("TARGET_PATH", targetPath);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent);
         } else {
@@ -418,21 +470,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopServiceFunc() {
-        // ★★★ 发送 ACTION_STOP 指令 ★★★
         Intent intent = new Intent(this, MonitorService.class);
         intent.setAction(MonitorService.ACTION_STOP);
-        startService(intent); // 触发 Service 的 onStartCommand 进行停止逻辑
-
-        btnStop.setEnabled(false); // 暂时禁用，等待广播更新 UI
+        startService(intent);
+        btnStop.setEnabled(false);
     }
-
-    // --- 辅助逻辑 ---
 
     private void loadPersistedPaths() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         sourcePath = prefs.getString(KEY_SOURCE_PATH, null);
         targetPath = prefs.getString(KEY_TARGET_PATH, null);
-
         if (sourcePath != null) tvSourcePath.setText("源: " + getFolderName(sourcePath));
         if (targetPath != null) tvTargetPath.setText("目标: " + getFolderName(targetPath));
     }
@@ -460,22 +507,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkDateEasterEgg() {
         java.util.Calendar c = java.util.Calendar.getInstance();
-
-        // 判断是否是 6月4日 (注意：Java中月份是从0开始的，Calendar.JUNE 其实是 5)
         boolean isJune4th = (c.get(java.util.Calendar.MONTH) == java.util.Calendar.JUNE)
                 && (c.get(java.util.Calendar.DAY_OF_MONTH) == 4);
-
         if (tvEasterEgg != null) {
             if (isJune4th) {
                 tvEasterEgg.setVisibility(View.VISIBLE);
-                // 这一天显示特定的文案
                 tvEasterEgg.setText("铭记历史，勿忘六四");
             } else {
                 tvEasterEgg.setVisibility(View.GONE);
             }
         }
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -495,19 +537,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 广播接收器：更新UI状态
     private class ServiceStatusReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (MonitorService.ACTION_SERVICE_STATUS.equals(intent.getAction())) {
                 boolean isRunning = intent.getBooleanExtra(MonitorService.EXTRA_IS_RUNNING, false);
                 String msg = intent.getStringExtra(MonitorService.EXTRA_MESSAGE);
-
                 tvServiceStatus.setText(msg != null ? msg : (isRunning ? "服务正在运行" : "服务已停止"));
                 btnStart.setEnabled(!isRunning);
                 btnStop.setEnabled(isRunning);
-
-                // 如果已停止，重新检查按钮状态（防止路径未选好就被启用）
                 if (!isRunning) {
                     checkButtons();
                 }

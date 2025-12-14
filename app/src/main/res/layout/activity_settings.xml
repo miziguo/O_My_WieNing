@@ -40,6 +40,42 @@
         android:layout_height="1dp"
         android:background="#e0e0e0" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="同步删除文件"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="开启后，如果源文件被删除，目标文件夹中的副本也会被删除。"
+                android:textSize="12sp"
+                android:textColor="#888" />
+        </LinearLayout>
+
+        <Switch
+            android:id="@+id/switchDeleteMirror"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="16dp"
+            android:layout_marginStart="16dp" />
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
@@ -90,8 +126,66 @@
             android:layout_marginTop="8dp"
             android:hint="例如: Report,Backup,重要"
             android:inputType="text"
-            android:theme="@style/EditText"
             android:textSize="14sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="个性化设置"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginTop="12dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="标题栏 (ActionBar) 颜色"
+            android:textSize="14sp" />
+
+        <Spinner
+            android:id="@+id/spinnerActionBarColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="按钮背景颜色"
+            android:textSize="14sp" />
+
+        <Spinner
+            android:id="@+id/spinnerButtonColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="按钮文字 / 标题栏文字颜色"
+            android:textSize="14sp" />
+
+        <Spinner
+            android:id="@+id/spinnerTextColor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"/>
     </LinearLayout>
 
     <View

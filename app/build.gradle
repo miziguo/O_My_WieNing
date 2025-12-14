@@ -3,16 +3,16 @@ plugins {
 }
 
 android {
-    namespace 'com.example.filecopier'
+    namespace 'o.my.wiening'
     compileSdk 34 // 确保大于等于 30
 
     defaultConfig {
-        applicationId "com.example.filecopier"
+        applicationId "o.my.wiening"
         // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
         minSdkVersion 26
         targetSdk 34
-        versionCode 10
-        versionName "Alpha 2.0.0"
+        versionCode 11
+        versionName "Beta 2.1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
