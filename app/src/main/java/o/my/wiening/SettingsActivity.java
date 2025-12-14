@@ -41,7 +41,7 @@ public class SettingsActivity extends AppCompatActivity {
     
     public static final String KEY_CUSTOM_ACTIONBAR_COLOR = "custom_actionbar_color";
     public static final String KEY_CUSTOM_BUTTON_COLOR = "custom_button_color";
-    public static final String KEY_CUSTOM_TEXT_COLOR = "custom_text_color"; // 新增
+    public static final String KEY_CUSTOM_TEXT_COLOR = "custom_text_color";
 
     private SharedPreferences sharedPrefs;
     private Spinner spinnerOverwriteMode;
@@ -95,18 +95,15 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    // --- 核心方法：安全获取颜色 ---
     private int getThemeColorFromIndex(int index, String customKey) {
-        // 如果选中的是最后一项（自定义）
         if (index == themeColorValues.length - 1) {
             String customColor = sharedPrefs.getString(customKey, "#FF000000");
             try {
                 return Color.parseColor(customColor);
             } catch (Exception e) {
-                return Color.BLACK; // 解析失败默认黑色
+                return Color.BLACK;
             }
         } 
-        // 常规选项
         else if (index >= 0 && index < themeColorValues.length) {
             try {
                 return Color.parseColor(themeColorValues[index]);
@@ -117,18 +114,15 @@ public class SettingsActivity extends AppCompatActivity {
         return Color.BLACK;
     }
 
-    // --- 新增：安全获取文字颜色 ---
     private int getTextColorFromIndex(int index) {
-        // 如果选中的是最后一项（自定义）
         if (index == textColorValues.length - 1) {
             String customColor = sharedPrefs.getString(KEY_CUSTOM_TEXT_COLOR, "#FFFFFFFF");
             try {
                 return Color.parseColor(customColor);
             } catch (Exception e) {
-                return Color.WHITE; // 解析失败默认白色
+                return Color.WHITE;
             }
         } 
-        // 常规选项
         else if (index >= 0 && index < textColorValues.length) {
             try {
                 return Color.parseColor(textColorValues[index]);
@@ -151,10 +145,13 @@ public class SettingsActivity extends AppCompatActivity {
         // 1. ActionBar 颜色
         setupSpinner(spinnerActionBarColor, themeColorAdapter, KEY_ACTIONBAR_COLOR_INDEX, 7, 
             (pos) -> {
-                if (pos == themeColorValues.length - 1) { // 自定义
-                     String existing = sharedPrefs.getString(KEY_CUSTOM_ACTIONBAR_COLOR, "");
-                     if (existing.isEmpty()) showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos);
-                     else applyActionBarColor(pos);
+                if (pos == themeColorValues.length - 1) {
+                     // 无论之前有没有值，只要切换到自定义（或者已经在自定义再次点击触发），都强制弹窗
+                     // 注意：Spinner 默认如果再次选择相同项不会触发 onItemSelected
+                     // 为了支持再次点击自定义弹出，我们在 onItemSelected 中判断，如果值没变且是自定义，则不处理（交给下面的点击处理）
+                     // 但 Spinner API 不支持重复点击回调。
+                     // 所以这里的逻辑是：切换到自定义 -> 弹窗。
+                     showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos);
                 } else {
                     applyActionBarColor(pos);
                 }
@@ -166,9 +163,7 @@ public class SettingsActivity extends AppCompatActivity {
         setupSpinner(spinnerButtonColor, themeColorAdapter, KEY_BUTTON_COLOR_INDEX, 7,
             (pos) -> {
                 if (pos == themeColorValues.length - 1) {
-                     String existing = sharedPrefs.getString(KEY_CUSTOM_BUTTON_COLOR, "");
-                     if (existing.isEmpty()) showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos);
-                     else applyButtonColor(pos);
+                     showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos);
                 } else {
                     applyButtonColor(pos);
                 }
@@ -179,10 +174,8 @@ public class SettingsActivity extends AppCompatActivity {
         // 3. 文字颜色
         setupSpinner(spinnerTextColor, textColorAdapter, KEY_TEXT_COLOR_INDEX, 2,
             (pos) -> {
-                if (pos == textColorValues.length - 1) { // 自定义
-                     String existing = sharedPrefs.getString(KEY_CUSTOM_TEXT_COLOR, "");
-                     if (existing.isEmpty()) showColorPickerDialog(KEY_CUSTOM_TEXT_COLOR, KEY_TEXT_COLOR_INDEX, pos);
-                     else applyTextColor(pos);
+                if (pos == textColorValues.length - 1) {
+                     showColorPickerDialog(KEY_CUSTOM_TEXT_COLOR, KEY_TEXT_COLOR_INDEX, pos);
                 } else {
                     applyTextColor(pos);
                 }
@@ -191,65 +184,57 @@ public class SettingsActivity extends AppCompatActivity {
         );
     }
 
-    // 辅助方法简化 Spinner 设置
     private interface OnColorSelected { void onSelect(int position); }
     private void setupSpinner(Spinner spinner, ArrayAdapter adapter, String key, int def, OnColorSelected listener, OnColorSelected onCustomReclick) {
         spinner.setAdapter(adapter);
         spinner.setSelection(sharedPrefs.getInt(key, def));
+        
+        // 关键修复：使用 OnTouchListener 或 post runnable 解决初始化时触发问题，以及允许“重选”
+        // 但 Spinner 原生不支持重复选。我们简化逻辑：只要 selection 变了且变为自定义，就触发。
+        // 为了支持“我想修改自定义颜色”，只能通过长按，或者先选别的再选自定义。
+        // 或者，我们在 showColorPickerDialog 取消时，重置 Spinner 到默认值，强迫用户下次必须重新选自定义触发事件。
+        
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             private boolean isInitial = true;
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (isInitial) { isInitial = false; } 
-                else {
-                    sharedPrefs.edit().putInt(key, position).apply();
-                    // 判断是否是自定义选项 (themeColorValues 或 textColorValues)
-                    boolean isCustomOption = false;
-                    if (key.equals(KEY_TEXT_COLOR_INDEX)) {
-                        isCustomOption = (position == textColorValues.length - 1);
-                    } else {
-                        isCustomOption = (position == themeColorValues.length - 1);
-                    }
+                if (isInitial) { isInitial = false; return; }
+                
+                sharedPrefs.edit().putInt(key, position).apply();
+                
+                // 判断是否是自定义选项
+                boolean isCustomOption = false;
+                if (key.equals(KEY_TEXT_COLOR_INDEX)) {
+                    isCustomOption = (position == textColorValues.length - 1);
+                } else {
+                    isCustomOption = (position == themeColorValues.length - 1);
+                }
 
-                    if (isCustomOption) {
-                        // 如果之前没存过自定义颜色，或者是刚切换到自定义，弹出框
-                        // 为了简化，这里再次检查
-                        String prefKey = "";
-                        if (key.equals(KEY_ACTIONBAR_COLOR_INDEX)) prefKey = KEY_CUSTOM_ACTIONBAR_COLOR;
-                        else if (key.equals(KEY_BUTTON_COLOR_INDEX)) prefKey = KEY_CUSTOM_BUTTON_COLOR;
-                        else if (key.equals(KEY_TEXT_COLOR_INDEX)) prefKey = KEY_CUSTOM_TEXT_COLOR;
-
-                        if (sharedPrefs.getString(prefKey, "").isEmpty()) {
-                             onCustomReclick.onSelect(position);
-                        } else {
-                            listener.onSelect(position);
-                        }
-                    } else {
-                        listener.onSelect(position);
-                    }
+                if (isCustomOption) {
+                    // 只要选了自定义，就强制回调，弹窗逻辑在 listener 中
+                    listener.onSelect(position); 
+                } else {
+                    listener.onSelect(position);
                 }
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
         
-        // 长按触发重新输入自定义颜色
-        if (onCustomReclick != null) {
-            spinner.setOnLongClickListener(v -> {
-                int pos = spinner.getSelectedItemPosition();
-                boolean isCustomOption = false;
-                if (key.equals(KEY_TEXT_COLOR_INDEX)) {
-                    isCustomOption = (pos == textColorValues.length - 1);
-                } else {
-                    isCustomOption = (pos == themeColorValues.length - 1);
-                }
+        spinner.setOnLongClickListener(v -> {
+            int pos = spinner.getSelectedItemPosition();
+            boolean isCustomOption = false;
+            if (key.equals(KEY_TEXT_COLOR_INDEX)) {
+                isCustomOption = (pos == textColorValues.length - 1);
+            } else {
+                isCustomOption = (pos == themeColorValues.length - 1);
+            }
 
-                if (isCustomOption) {
-                    onCustomReclick.onSelect(pos);
-                    return true;
-                }
-                return false;
-            });
-        }
+            if (isCustomOption) {
+                onCustomReclick.onSelect(pos);
+                return true;
+            }
+            return false;
+        });
     }
 
     private void showColorPickerDialog(String prefKey, String indexKey, int spinnerPosition) {
@@ -260,25 +245,50 @@ public class SettingsActivity extends AppCompatActivity {
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("输入颜色 (例如 #FF0000)")
                 .setView(input)
+                .setCancelable(false)
                 .setPositiveButton("确定", (d, which) -> {
                     String colorStr = input.getText().toString().trim();
                     try {
-                        Color.parseColor(colorStr); // 校验
+                        Color.parseColor(colorStr);
                         sharedPrefs.edit().putString(prefKey, colorStr).apply();
-                        // 强制刷新
+                        
                         if (prefKey.equals(KEY_CUSTOM_ACTIONBAR_COLOR)) applyActionBarColor(spinnerPosition);
                         else if (prefKey.equals(KEY_CUSTOM_BUTTON_COLOR)) applyButtonColor(spinnerPosition);
                         else if (prefKey.equals(KEY_CUSTOM_TEXT_COLOR)) applyTextColor(spinnerPosition);
                     } catch (Exception e) {
                         Toast.makeText(this, "颜色格式错误", Toast.LENGTH_SHORT).show();
+                        // 格式错误也回滚，强迫重选
+                        resetSpinnerSelection(indexKey);
                     }
                 })
-                .setNegativeButton("取消", null)
+                .setNegativeButton("取消", (d, which) -> {
+                    // 关键修复：取消时回滚选择，确保下次点击“自定义”能再次触发 onItemSelected
+                    resetSpinnerSelection(indexKey);
+                })
                 .create();
         
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLACK);
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.BLACK);
+    }
+
+    // 辅助回滚方法
+    private void resetSpinnerSelection(String key) {
+        int defaultIndex = 7; // 默认黑色
+        if (key.equals(KEY_TEXT_COLOR_INDEX)) defaultIndex = 2; // 文字默认白色
+        
+        sharedPrefs.edit().putInt(key, defaultIndex).apply();
+        
+        if (key.equals(KEY_ACTIONBAR_COLOR_INDEX)) {
+            spinnerActionBarColor.setSelection(defaultIndex);
+            applyActionBarColor(defaultIndex);
+        } else if (key.equals(KEY_BUTTON_COLOR_INDEX)) {
+            spinnerButtonColor.setSelection(defaultIndex);
+            applyButtonColor(defaultIndex);
+        } else if (key.equals(KEY_TEXT_COLOR_INDEX)) {
+            spinnerTextColor.setSelection(defaultIndex);
+            applyTextColor(defaultIndex);
+        }
     }
 
     private void applyColors() {
@@ -307,20 +317,16 @@ public class SettingsActivity extends AppCompatActivity {
     private void applyTextColor(int index) {
         int color = getTextColorFromIndex(index);
 
-        // 1. 设置按钮文字颜色
         btnAbout.setTextColor(color);
-
-        // 2. 设置 ActionBar 标题颜色
+        
         ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            String title = "设置"; // 强制重置标题以应用颜色
-            SpannableString text = new SpannableString(title);
+        if (actionBar != null && actionBar.getTitle() != null) {
+            SpannableString text = new SpannableString(actionBar.getTitle());
             text.setSpan(new ForegroundColorSpan(color), 0, text.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
             actionBar.setTitle(text);
         }
     }
 
-    // ... (setupOverwriteModeSpinner, setupContentFilter, setupAboutButton 等保持不变) ...
     private void setupOverwriteModeSpinner() {
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.overwrite_options, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -336,7 +342,11 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void setupDeleteMirrorSwitch() {
-        // ... (Switch 逻辑)
+        switchDeleteMirror.setChecked(sharedPrefs.getBoolean(KEY_DELETE_MIRROR, false));
+        switchDeleteMirror.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sharedPrefs.edit().putBoolean(KEY_DELETE_MIRROR, isChecked).apply();
+            Toast.makeText(SettingsActivity.this, isChecked ? "同步删除已开启" : "同步删除已关闭", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void setupContentFilter() {
@@ -347,6 +357,8 @@ public class SettingsActivity extends AppCompatActivity {
         switchContentFilter.setOnCheckedChangeListener((v, isChecked) -> {
             sharedPrefs.edit().putBoolean(KEY_CONTENT_FILTER_ENABLED, isChecked).apply();
             etFilterKeywords.setEnabled(isChecked);
+            String msg = isChecked ? "文件过滤已开启" : "文件过滤已关闭 (复制全部)";
+            Toast.makeText(SettingsActivity.this, msg, Toast.LENGTH_SHORT).show();
         });
         
         etFilterKeywords.addTextChangedListener(new TextWatcher() {
