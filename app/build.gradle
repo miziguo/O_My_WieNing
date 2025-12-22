@@ -3,16 +3,16 @@ plugins {
 }
 
 android {
-    namespace 'o.my.wiening'
+    namespace 'o.my.gay'
     compileSdk 34 // 确保大于等于 30
 
     defaultConfig {
-        applicationId "o.my.wiening"
+        applicationId "o.my.gay"
         // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
         minSdkVersion 26
         targetSdk 34
-        versionCode 13
-        versionName "Beta 2.1.6"
+        versionCode 15
+        versionName "Beta 2.2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">哦！我的南娘</string>
+    <string name="app_name">哦！我的基佬</string>
 
     <string-array name="overwrite_options">
         <item>自动添加编号 (推荐)</item>
@@ -7,25 +7,25 @@
     </string-array>
 
     <string-array name="theme_color_names">
-        <item>红色</item>
-        <item>橙色</item>
-        <item>黄色</item>
-        <item>绿色</item>
-        <item>浅绿色</item>
-        <item>青色</item>
-        <item>紫色</item>
-        <item>黑色</item>
-        <item>白色</item>
+        <item>民主红</item>
+        <item>P站黄</item>
+        <item>包子黄</item>
+        <item>青蛙绿</item>
+        <item>敖辅绿</item>
+        <item>肉鼠粉</item>
+        <item>挑单紫</item>
+        <item>大吊黑</item>
+        <item>泽浩白</item>
         <item>自定义</item>
     </string-array>
 
     <string-array name="theme_color_values">
         <item>#FFFF0000</item> <!-- Red -->
         <item>#FFFFA500</item> <!-- Orange -->
-        <item>#FFFFFF00</item> <!-- Yellow -->
+        <item>#FFEBB201</item> <!-- Yellow -->
         <item>#FF008000</item> <!-- Green -->
         <item>#FF90EE90</item> <!-- Light Green -->
-        <item>#FF00FFFF</item> <!-- Cyan -->
+        <item>#FFFEAEC9</item> <!-- Mouse -->
         <item>#FF800080</item> <!-- Purple -->
         <item>#FF000000</item> <!-- Black -->
         <item>#FFFFFFFF</item> <!-- White -->
@@ -33,9 +33,9 @@
     </string-array>
 
     <string-array name="text_color_names">
-        <item>黑色</item>
-        <item>灰色</item>
-        <item>白色</item>
+        <item>大吊黑</item>
+        <item>敖辅灰</item>
+        <item>泽浩白</item>
         <item>自定义</item>
     </string-array>
 

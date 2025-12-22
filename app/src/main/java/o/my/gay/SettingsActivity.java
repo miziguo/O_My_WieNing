@@ -1,4 +1,4 @@
-package o.my.wiening;
+package o.my.gay;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -14,8 +14,6 @@ import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;

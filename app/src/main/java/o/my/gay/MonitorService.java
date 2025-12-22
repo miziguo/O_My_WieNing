@@ -1,4 +1,4 @@
-package o.my.wiening;
+package o.my.gay;
 
 import android.app.AlarmManager;
 import android.app.Notification;
