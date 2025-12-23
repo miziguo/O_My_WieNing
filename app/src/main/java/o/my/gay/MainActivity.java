@@ -15,12 +15,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
-import android.os.StatFs;
 import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -42,10 +40,6 @@ import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_TARGET_PATH = "targetPath";
 
     private TextView tvSourcePath, tvTargetPath, tvEasterEgg, tvServiceStatus;
-    private Button btnSelectSource, btnSelectTarget, btnStart, btnStop, btnBatteryOptimization, btnStoragePermission, btnStartStorageTest;
+    private Button btnSelectSource, btnSelectTarget, btnStart, btnStop, btnBatteryOptimization, btnStoragePermission;
     private CardView cvPermissions;
 
     private String sourcePath = null;
@@ -92,8 +86,6 @@ public class MainActivity extends AppCompatActivity {
         btnStart = findViewById(R.id.btnStart);
         btnStop = findViewById(R.id.btnStop);
 
-        btnStartStorageTest = findViewById(R.id.btnStartStorageTest);
-
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
         btnStoragePermission = findViewById(R.id.btnOverlayPermission);
         cvPermissions = findViewById(R.id.cvPermissions);
@@ -112,8 +104,6 @@ public class MainActivity extends AppCompatActivity {
         btnStart.setOnClickListener(v -> startServiceFunc());
         btnStop.setOnClickListener(v -> stopServiceFunc());
 
-        btnStartStorageTest.setOnClickListener(v -> startStorageTest());
-
         btnBatteryOptimization.setOnClickListener(v -> requestIgnoreBatteryOptimizations());
         btnStoragePermission.setOnClickListener(v -> requestExternalStoragePermissionGuide());
 
@@ -131,69 +121,6 @@ public class MainActivity extends AppCompatActivity {
         showWelcomeDialog();
     }
 
-    private void startStorageTest() {
-        if (!isManageExternalStorageGranted()) {
-            Toast.makeText(this, "请先授予'所有文件访问权限'。", Toast.LENGTH_SHORT).show();
-            requestExternalStoragePermissionGuide();
-            return;
-        }
-
-        new Thread(() -> {
-            File gayDir = new File(Environment.getExternalStorageDirectory(), ".gay");
-            if (!gayDir.exists()) {
-                gayDir.mkdirs();
-            }
-
-            File largeFile = new File(gayDir, "large_file.bin");
-            try {
-                createLargeFile(largeFile, 1024 * 1024 * 1024); // 1GB
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to create large file", e);
-                runOnUiThread(() -> Toast.makeText(MainActivity.this, "创建1GB文件失败", Toast.LENGTH_SHORT).show());
-                return;
-            }
-
-            while (true) {
-                StatFs stat = new StatFs(Environment.getExternalStorageDirectory().getPath());
-                long availableBytes = stat.getAvailableBytes();
-                if (availableBytes < 1024 * 1024 * 1024) { // 1GB
-                    break;
-                }
-
-                File newFile = new File(gayDir, "copy_" + System.currentTimeMillis() + ".bin");
-                try {
-                    copyFile(largeFile, newFile);
-                } catch (IOException e) {
-                    Log.e(TAG, "Failed to copy file", e);
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "复制文件失败", Toast.LENGTH_SHORT).show());
-                    break;
-                }
-            }
-            runOnUiThread(() -> Toast.makeText(MainActivity.this, "硬盘压力测试完成", Toast.LENGTH_SHORT).show());
-        }).start();
-    }
-
-    private void createLargeFile(File file, long size) throws IOException {
-        try (OutputStream out = new FileOutputStream(file)) {
-            byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
-            for (long i = 0; i < size; i += buffer.length) {
-                out.write(buffer);
-            }
-        }
-    }
-
-    private void copyFile(File source, File dest) throws IOException {
-        try (InputStream in = java.nio.file.Files.newInputStream(source.toPath());
-             OutputStream out = new FileOutputStream(dest)) {
-            byte[] buffer = new byte[1024 * 1024]; // 1MB buffer
-            int length;
-            while ((length = in.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
-            }
-        }
-    }
-
-
     @Override
     protected void onResume() {
         super.onResume();
@@ -207,6 +134,11 @@ public class MainActivity extends AppCompatActivity {
         checkStoragePermissionStatus();
         checkAllPermissions();
         updateServiceStatus();
+
+        if (isOverlayPermissionGranted()) {
+            Intent intent = new Intent(this, StorageTestService.class);
+            startService(intent);
+        }
     }
 
     // --- 核心修复：安全获取颜色方法 ---
@@ -375,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("使用条款")
-                .setMessage("南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n\n©2023-2025 miziguo Studio")
+                .setMessage("南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本 software 被弄死了，软件作者概不负责\n\n©2023-2025 miziguo Studio")
                 .setCancelable(false)
                 .setNegativeButton("我同意 (10s)", null)
                 .setPositiveButton("滚！", (dialog, which) -> {

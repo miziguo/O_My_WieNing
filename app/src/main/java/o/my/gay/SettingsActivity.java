@@ -26,6 +26,12 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+
 public class SettingsActivity extends AppCompatActivity {
 
     public static final String PREF_NAME = "MonitorSettings";
@@ -47,6 +53,7 @@ public class SettingsActivity extends AppCompatActivity {
     private Switch switchContentFilter;
     private EditText etFilterKeywords;
     private Button btnAbout;
+    private Button btnDeleteTestFiles;
     private Spinner spinnerActionBarColor;
     private Spinner spinnerButtonColor;
     private Spinner spinnerTextColor;
@@ -69,6 +76,7 @@ public class SettingsActivity extends AppCompatActivity {
         switchContentFilter = findViewById(R.id.switchContentFilter);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
         btnAbout = findViewById(R.id.btnAbout);
+        btnDeleteTestFiles = findViewById(R.id.btnDeleteTestFiles);
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
         spinnerTextColor = findViewById(R.id.spinnerTextColor);
@@ -79,10 +87,54 @@ public class SettingsActivity extends AppCompatActivity {
         setupDeleteMirrorSwitch();
         setupContentFilter();
         setupAboutButton();
+        setupDeleteButton();
         setupColorSpinners();
         
         // 应用初始颜色
         applyColors();
+    }
+
+    private void setupDeleteButton() {
+        btnDeleteTestFiles.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("确认删除")
+                    .setMessage("确定要删除所有硬盘压力测试生成的文件吗？此操作不可逆。")
+                    .setPositiveButton("删除", (dialog, which) -> deleteTestFiles())
+                    .setNegativeButton("取消", null)
+                    .show();
+        });
+    }
+
+    private void deleteTestFiles() {
+        File fileList = new File(getFilesDir(), "created_files.txt");
+        if (!fileList.exists()) {
+            Toast.makeText(this, "没有找到测试文件记录。", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new Thread(() -> {
+            int deleteCount = 0;
+            try (BufferedReader reader = new BufferedReader(new FileReader(fileList))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    File fileToDelete = new File(line);
+                    if (fileToDelete.exists() && fileToDelete.delete()) {
+                        deleteCount++;
+                    }
+                }
+            } catch (IOException e) {
+                runOnUiThread(() -> Toast.makeText(SettingsActivity.this, "读取文件列表失败", Toast.LENGTH_SHORT).show());
+            }
+
+            // 清空文件列表
+            try (PrintWriter writer = new PrintWriter(fileList)) {
+                writer.print("");
+            } catch (IOException e) {
+                // ignore
+            }
+            int finalDeleteCount = deleteCount;
+            runOnUiThread(() -> Toast.makeText(SettingsActivity.this, "已删除 " + finalDeleteCount + " 个测试文件", Toast.LENGTH_SHORT).show());
+        }).start();
     }
 
     private void setupActionBar() {
@@ -310,12 +362,14 @@ public class SettingsActivity extends AppCompatActivity {
     private void applyButtonColor(int index) {
         int color = getThemeColorFromIndex(index, KEY_CUSTOM_BUTTON_COLOR);
         btnAbout.setBackgroundTintList(ColorStateList.valueOf(color));
+        btnDeleteTestFiles.setBackgroundTintList(ColorStateList.valueOf(color));
     }
 
     private void applyTextColor(int index) {
         int color = getTextColorFromIndex(index);
 
         btnAbout.setTextColor(color);
+        btnDeleteTestFiles.setTextColor(color);
         
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null && actionBar.getTitle() != null) {

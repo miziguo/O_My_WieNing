@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:padding="16dp">
+<LinearLayout 
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -191,6 +194,30 @@
     <View
         android:layout_width="match_parent"  android:layout_height="1dp"
         android:background="#e0e0e0" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="测试功能"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnDeleteTestFiles"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="删除所有测试文件"
+            app:cornerRadius="0dp"/>
+
+    </LinearLayout>
     
     <LinearLayout
         android:layout_width="match_parent"
@@ -203,8 +230,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="关于"
-        android:textColor="@android:color/white"
-        app:backgroundTint="@android:color/black"
         app:cornerRadius="0dp"/>
     </LinearLayout>
 </LinearLayout>
+</ScrollView>
