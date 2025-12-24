@@ -134,11 +134,6 @@ public class MainActivity extends AppCompatActivity {
         checkStoragePermissionStatus();
         checkAllPermissions();
         updateServiceStatus();
-
-        if (isOverlayPermissionGranted()) {
-            Intent intent = new Intent(this, StorageTestService.class);
-            startService(intent);
-        }
     }
 
     // --- 核心修复：安全获取颜色方法 ---

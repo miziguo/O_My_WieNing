@@ -1,7 +1,40 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme for night mode -->
     <style name="Base.Theme.FileCopier" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    </style>
+
+    <style name="Theme.FileCopier" parent="Base.Theme.FileCopier" />
+
+    <!-- Settings theme for Night mode -->
+    <style name="Theme.FileCopier.Settings" parent="Theme.AppCompat">
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorAccent">@color/teal_200</item>
+        <item name="titleTextColor">@color/white</item>
+        <item name="android:windowBackground">@color/black</item>
+    </style>
+
+    <!-- MainActivity theme for Night mode -->
+    <style name="Theme.FileCopier.Main" parent="Theme.AppCompat">
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorAccent">@color/white</item>
+        <item name="titleTextColor">@color/white</item>
+        <item name="actionBarPopupTheme">@style/Theme.FileCopier.Popup</item>
+    </style>
+
+    <!-- Popup menu style can remain dark -->
+    <style name="Theme.FileCopier.Popup" parent="ThemeOverlay.AppCompat.Dark">
+        <item name="android:colorBackground">@color/black</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- EditText style for night mode -->
+    <style name="EditText" parent="Theme.AppCompat">
+        <item name="colorControlNormal">@color/gray</item>
+        <item name="colorControlActivated">@color/white</item>
+        <item name="android:textColorHint">@color/gray</item>
     </style>
 </resources>

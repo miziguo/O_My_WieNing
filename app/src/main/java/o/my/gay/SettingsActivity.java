@@ -1,6 +1,7 @@
 package o.my.gay;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -20,6 +21,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.ActionBar;
@@ -34,7 +36,7 @@ import java.io.PrintWriter;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    public static final String PREF_NAME = "MonitorSettings";
+    public static final String PREF_NAME = "FileCopierPrefs";
     public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
     public static final String KEY_DELETE_MIRROR = "delete_mirror";
     public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled";
@@ -42,7 +44,6 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_ACTIONBAR_COLOR_INDEX = "actionbar_color_index";
     public static final String KEY_BUTTON_COLOR_INDEX = "button_color_index";
     public static final String KEY_TEXT_COLOR_INDEX = "text_color_index";
-    
     public static final String KEY_CUSTOM_ACTIONBAR_COLOR = "custom_actionbar_color";
     public static final String KEY_CUSTOM_BUTTON_COLOR = "custom_button_color";
     public static final String KEY_CUSTOM_TEXT_COLOR = "custom_text_color";
@@ -57,6 +58,8 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinnerActionBarColor;
     private Spinner spinnerButtonColor;
     private Spinner spinnerTextColor;
+    private Switch switchRemoteControl;
+    private TextView textRemoteStatus;
 
     private String[] themeColorValues;
     private String[] textColorValues;
@@ -70,7 +73,7 @@ public class SettingsActivity extends AppCompatActivity {
         themeColorValues = getResources().getStringArray(R.array.theme_color_values);
         textColorValues = getResources().getStringArray(R.array.text_color_values);
 
-        // 初始化视图
+        // Initialize views
         spinnerOverwriteMode = findViewById(R.id.spinnerOverwriteMode);
         switchDeleteMirror = findViewById(R.id.switchDeleteMirror);
         switchContentFilter = findViewById(R.id.switchContentFilter);
@@ -80,8 +83,10 @@ public class SettingsActivity extends AppCompatActivity {
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
         spinnerTextColor = findViewById(R.id.spinnerTextColor);
+        switchRemoteControl = findViewById(R.id.switchRemoteControl);
+        textRemoteStatus = findViewById(R.id.textRemoteStatus);
 
-        // 设置 UI
+        // Set up UI
         setupActionBar();
         setupOverwriteModeSpinner();
         setupDeleteMirrorSwitch();
@@ -89,9 +94,23 @@ public class SettingsActivity extends AppCompatActivity {
         setupAboutButton();
         setupDeleteButton();
         setupColorSpinners();
-        
-        // 应用初始颜色
+        setupRemoteControl();
+
+        // Apply initial colors
         applyColors();
+    }
+
+    private void setupRemoteControl() {
+        switchRemoteControl.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Intent intent = new Intent(this, RemoteControlService.class);
+            if (isChecked) {
+                startService(intent);
+                textRemoteStatus.setText("远程控制服务已启动");
+            } else {
+                stopService(intent);
+                textRemoteStatus.setText("远程控制已关闭");
+            }
+        });
     }
 
     private void setupDeleteButton() {
@@ -126,7 +145,6 @@ public class SettingsActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(SettingsActivity.this, "读取文件列表失败", Toast.LENGTH_SHORT).show());
             }
 
-            // 清空文件列表
             try (PrintWriter writer = new PrintWriter(fileList)) {
                 writer.print("");
             } catch (IOException e) {
@@ -146,15 +164,14 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private int getThemeColorFromIndex(int index, String customKey) {
-        if (index == themeColorValues.length - 1) {
+        if (index == themeColorValues.length - 1) { // Custom
             String customColor = sharedPrefs.getString(customKey, "#FF000000");
             try {
                 return Color.parseColor(customColor);
             } catch (Exception e) {
                 return Color.BLACK;
             }
-        } 
-        else if (index >= 0 && index < themeColorValues.length) {
+        } else if (index >= 0 && index < themeColorValues.length - 1) {
             try {
                 return Color.parseColor(themeColorValues[index]);
             } catch (Exception e) {
@@ -165,15 +182,14 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private int getTextColorFromIndex(int index) {
-        if (index == textColorValues.length - 1) {
+        if (index == textColorValues.length - 1) { // Custom
             String customColor = sharedPrefs.getString(KEY_CUSTOM_TEXT_COLOR, "#FFFFFFFF");
             try {
                 return Color.parseColor(customColor);
             } catch (Exception e) {
                 return Color.WHITE;
             }
-        } 
-        else if (index >= 0 && index < textColorValues.length) {
+        } else if (index >= 0 && index < textColorValues.length - 1) {
             try {
                 return Color.parseColor(textColorValues[index]);
             } catch (Exception e) {
@@ -192,15 +208,9 @@ public class SettingsActivity extends AppCompatActivity {
                 this, R.array.text_color_names, android.R.layout.simple_spinner_item);
         textColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 
-        // 1. ActionBar 颜色
         setupSpinner(spinnerActionBarColor, themeColorAdapter, KEY_ACTIONBAR_COLOR_INDEX, 7, 
             (pos) -> {
                 if (pos == themeColorValues.length - 1) {
-                     // 无论之前有没有值，只要切换到自定义（或者已经在自定义再次点击触发），都强制弹窗
-                     // 注意：Spinner 默认如果再次选择相同项不会触发 onItemSelected
-                     // 为了支持再次点击自定义弹出，我们在 onItemSelected 中判断，如果值没变且是自定义，则不处理（交给下面的点击处理）
-                     // 但 Spinner API 不支持重复点击回调。
-                     // 所以这里的逻辑是：切换到自定义 -> 弹窗。
                      showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos);
                 } else {
                     applyActionBarColor(pos);
@@ -209,7 +219,6 @@ public class SettingsActivity extends AppCompatActivity {
             (pos) -> showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos)
         );
 
-        // 2. 按钮颜色
         setupSpinner(spinnerButtonColor, themeColorAdapter, KEY_BUTTON_COLOR_INDEX, 7,
             (pos) -> {
                 if (pos == themeColorValues.length - 1) {
@@ -221,7 +230,6 @@ public class SettingsActivity extends AppCompatActivity {
             (pos) -> showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos)
         );
 
-        // 3. 文字颜色
         setupSpinner(spinnerTextColor, textColorAdapter, KEY_TEXT_COLOR_INDEX, 2,
             (pos) -> {
                 if (pos == textColorValues.length - 1) {
@@ -239,11 +247,6 @@ public class SettingsActivity extends AppCompatActivity {
         spinner.setAdapter(adapter);
         spinner.setSelection(sharedPrefs.getInt(key, def));
         
-        // 关键修复：使用 OnTouchListener 或 post runnable 解决初始化时触发问题，以及允许“重选”
-        // 但 Spinner 原生不支持重复选。我们简化逻辑：只要 selection 变了且变为自定义，就触发。
-        // 为了支持“我想修改自定义颜色”，只能通过长按，或者先选别的再选自定义。
-        // 或者，我们在 showColorPickerDialog 取消时，重置 Spinner 到默认值，强迫用户下次必须重新选自定义触发事件。
-        
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             private boolean isInitial = true;
             @Override
@@ -252,7 +255,6 @@ public class SettingsActivity extends AppCompatActivity {
                 
                 sharedPrefs.edit().putInt(key, position).apply();
                 
-                // 判断是否是自定义选项
                 boolean isCustomOption = false;
                 if (key.equals(KEY_TEXT_COLOR_INDEX)) {
                     isCustomOption = (position == textColorValues.length - 1);
@@ -261,7 +263,6 @@ public class SettingsActivity extends AppCompatActivity {
                 }
 
                 if (isCustomOption) {
-                    // 只要选了自定义，就强制回调，弹窗逻辑在 listener 中
                     listener.onSelect(position); 
                 } else {
                     listener.onSelect(position);
@@ -307,12 +308,10 @@ public class SettingsActivity extends AppCompatActivity {
                         else if (prefKey.equals(KEY_CUSTOM_TEXT_COLOR)) applyTextColor(spinnerPosition);
                     } catch (Exception e) {
                         Toast.makeText(this, "颜色格式错误", Toast.LENGTH_SHORT).show();
-                        // 格式错误也回滚，强迫重选
                         resetSpinnerSelection(indexKey);
                     }
                 })
                 .setNegativeButton("取消", (d, which) -> {
-                    // 关键修复：取消时回滚选择，确保下次点击“自定义”能再次触发 onItemSelected
                     resetSpinnerSelection(indexKey);
                 })
                 .create();
@@ -322,7 +321,6 @@ public class SettingsActivity extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.BLACK);
     }
 
-    // 辅助回滚方法
     private void resetSpinnerSelection(String key) {
         int defaultIndex = 7; // 默认黑色
         if (key.equals(KEY_TEXT_COLOR_INDEX)) defaultIndex = 2; // 文字默认白色
