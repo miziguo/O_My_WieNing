@@ -3,17 +3,15 @@ plugins {
 }
 
 android {
-    namespace 'o.my.gay'
-    compileSdk 34 // 确保大于等于 30
+    namespace 'o.client.gay'
+    compileSdk 34
 
     defaultConfig {
-        applicationId "o.my.gay"
-        // 虽然您的手机是 35，但为了兼容性，我们通常设置一个 SAF 的最低版本
+        applicationId "o.client.gay"
         minSdkVersion 26
         targetSdk 34
         versionCode 15
         versionName "Beta 2.2.0"
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -24,32 +22,30 @@ android {
         }
     }
     buildFeatures {
-        // 确保这一行是 true
         buildConfig true
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17 // 使用您的 JDK 版本
-        targetCompatibility JavaVersion.VERSION_17 // 使用您的 JDK 版本
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
-    // 兼容性和 UI 依赖
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-
-    // 核心修复点：SAF 文件操作依赖 (解决程序包不存在错误)
     implementation 'androidx.documentfile:documentfile:1.0.1'
 
-    // 测试依赖...
+    // Network
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    implementation 'com.google.code.gson:gson:2.9.0'
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    implementation 'org.nanohttpd:nanohttpd-websocket:2.3.1'
+
+    // Testing
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     implementation 'androidx.cardview:cardview:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
-    implementation 'org.nanohttpd:nanohttpd:2.3.1'
 }

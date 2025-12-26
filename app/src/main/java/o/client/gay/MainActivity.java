@@ -1,4 +1,4 @@
-package o.my.gay;
+package o.client.gay;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;

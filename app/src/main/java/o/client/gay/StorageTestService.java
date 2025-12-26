@@ -1,4 +1,4 @@
-package o.my.gay;
+package o.client.gay;
 
 import android.app.Service;
 import android.content.Intent;
@@ -17,7 +17,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;

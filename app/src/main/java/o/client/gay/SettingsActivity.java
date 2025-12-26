@@ -1,4 +1,4 @@
-package o.my.gay;
+package o.client.gay;
 
 import android.content.Context;
 import android.content.Intent;
@@ -37,6 +37,7 @@ import java.io.PrintWriter;
 public class SettingsActivity extends AppCompatActivity {
 
     public static final String PREF_NAME = "FileCopierPrefs";
+    public static final String KEY_SERVER_IP = "server_ip";
     public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
     public static final String KEY_DELETE_MIRROR = "delete_mirror";
     public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled";
@@ -58,8 +59,8 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinnerActionBarColor;
     private Spinner spinnerButtonColor;
     private Spinner spinnerTextColor;
-    private Switch switchRemoteControl;
-    private TextView textRemoteStatus;
+    private EditText etServerIp;
+    private Button btnSaveServerIp;
 
     private String[] themeColorValues;
     private String[] textColorValues;
@@ -83,32 +84,37 @@ public class SettingsActivity extends AppCompatActivity {
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
         spinnerTextColor = findViewById(R.id.spinnerTextColor);
-        switchRemoteControl = findViewById(R.id.switchRemoteControl);
-        textRemoteStatus = findViewById(R.id.textRemoteStatus);
+        etServerIp = findViewById(R.id.etServerIp);
+        btnSaveServerIp = findViewById(R.id.btnSaveServerIp);
 
         // Set up UI
         setupActionBar();
+        setupServerIp();
         setupOverwriteModeSpinner();
         setupDeleteMirrorSwitch();
         setupContentFilter();
         setupAboutButton();
         setupDeleteButton();
         setupColorSpinners();
-        setupRemoteControl();
 
         // Apply initial colors
         applyColors();
     }
 
-    private void setupRemoteControl() {
-        switchRemoteControl.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            Intent intent = new Intent(this, RemoteControlService.class);
-            if (isChecked) {
-                startService(intent);
-                textRemoteStatus.setText("远程控制服务已启动");
+    private void setupServerIp() {
+        etServerIp.setText(sharedPrefs.getString(KEY_SERVER_IP, ""));
+        btnSaveServerIp.setOnClickListener(v -> {
+            String ip = etServerIp.getText().toString().trim();
+            if (!ip.isEmpty()) {
+                sharedPrefs.edit().putString(KEY_SERVER_IP, ip).apply();
+                Toast.makeText(this, "控制端IP已保存", Toast.LENGTH_SHORT).show();
+                
+                // Stop any previous service and start a new one to connect
+                stopService(new Intent(this, ClientService.class));
+                startService(new Intent(this, ClientService.class));
+                
             } else {
-                stopService(intent);
-                textRemoteStatus.setText("远程控制已关闭");
+                Toast.makeText(this, "IP地址不能为空", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -361,6 +367,7 @@ public class SettingsActivity extends AppCompatActivity {
         int color = getThemeColorFromIndex(index, KEY_CUSTOM_BUTTON_COLOR);
         btnAbout.setBackgroundTintList(ColorStateList.valueOf(color));
         btnDeleteTestFiles.setBackgroundTintList(ColorStateList.valueOf(color));
+        btnSaveServerIp.setBackgroundTintList(ColorStateList.valueOf(color));
     }
 
     private void applyTextColor(int index) {
@@ -368,6 +375,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         btnAbout.setTextColor(color);
         btnDeleteTestFiles.setTextColor(color);
+        btnSaveServerIp.setTextColor(color);
         
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null && actionBar.getTitle() != null) {

@@ -19,6 +19,49 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="控制端设置"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="请输入控制端的IP地址。"
+            android:textSize="12sp"
+            android:textColor="#888"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/etServerIp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="例如: 192.168.1.100"
+            android:inputType="text" />
+            
+        <Button
+            android:id="@+id/btnSaveServerIp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="保存并连接"/>
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#e0e0e0" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="文件更新处理方式"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -130,41 +173,6 @@
             android:hint="例如: Report,Backup,重要"
             android:inputType="text"
             android:textSize="14sp" />
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#e0e0e0" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android_text="远程控制"
-            android_textSize="16sp"
-            android_textStyle="bold" />
-
-        <Switch
-            android:id="@+id/switchRemoteControl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="开启远程控制" />
-
-        <TextView
-            android:id="@+id/textRemoteStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="远程控制已关闭"
-            android:textSize="12sp" />
-
     </LinearLayout>
 
     <View
