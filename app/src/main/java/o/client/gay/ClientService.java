@@ -10,7 +10,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -24,11 +26,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.net.URLDecoder;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
@@ -46,12 +49,15 @@ public class ClientService extends Service {
     private static final String CHANNEL_ID = "ClientServiceChannel";
     private static final int NOTIFICATION_ID = 1;
     private static final int HTTP_PORT = 9999;
+    private static final long RECONNECT_DELAY_MS = 5000; // 5 seconds
 
     private OkHttpClient httpClient;
     private WebSocket webSocket;
     private DownloadHttpServer downloadServer;
     private final Gson gson = new Gson();
     private NotificationManager notificationManager;
+    private Handler reconnectHandler;
+    private boolean isStopping = false;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -64,6 +70,8 @@ public class ClientService extends Service {
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         createNotificationChannel();
 
+        reconnectHandler = new Handler(Looper.getMainLooper());
+
         httpClient = new OkHttpClient.Builder()
                 .pingInterval(30, TimeUnit.SECONDS)
                 .build();
@@ -71,7 +79,6 @@ public class ClientService extends Service {
         downloadServer = new DownloadHttpServer();
         try {
             downloadServer.start();
-            Log.d(TAG, "Download/Upload server started on port " + HTTP_PORT);
         } catch (IOException e) {
             Log.e(TAG, "Error starting HTTP server", e);
         }
@@ -79,7 +86,8 @@ public class ClientService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(NOTIFICATION_ID, createNotification("正在连接控制端..."));
+        isStopping = false;
+        startForeground(NOTIFICATION_ID, createNotification("正在初始化..."));
         connectToController();
         return START_STICKY;
     }
@@ -87,12 +95,16 @@ public class ClientService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        isStopping = true;
+        reconnectHandler.removeCallbacksAndMessages(null);
         if (webSocket != null) webSocket.close(1000, "Service destroyed");
         if (downloadServer != null) downloadServer.stop();
         stopForeground(true);
     }
 
     private void connectToController() {
+        if (isStopping) return;
+
         SharedPreferences prefs = getSharedPreferences(SettingsActivity.PREF_NAME, Context.MODE_PRIVATE);
         String controllerIp = prefs.getString(SettingsActivity.KEY_SERVER_IP, null);
 
@@ -102,15 +114,30 @@ public class ClientService extends Service {
             return;
         }
 
-        String wsUrl = "ws://" + controllerIp + ":9998";
-        Request request = new Request.Builder().url(wsUrl).addHeader("Device-Name", Build.MODEL).build();
+        updateNotification("正在连接 " + controllerIp + "...");
+
+        Request request = new Request.Builder()
+                .url("ws://" + controllerIp + ":9998")
+                .addHeader("Device-Name", Build.MODEL)
+                .build();
+
+        if (webSocket != null) {
+            webSocket.cancel();
+        }
         webSocket = httpClient.newWebSocket(request, new ClientWebSocketListener());
+    }
+
+    private void scheduleReconnect() {
+        if (isStopping) return;
+        reconnectHandler.removeCallbacksAndMessages(null);
+        reconnectHandler.postDelayed(this::connectToController, RECONNECT_DELAY_MS);
     }
 
     private final class ClientWebSocketListener extends WebSocketListener {
         @Override
         public void onOpen(@NonNull WebSocket webSocket, @NonNull okhttp3.Response response) {
             updateNotification("已连接到控制端");
+            reconnectHandler.removeCallbacksAndMessages(null);
         }
 
         @Override
@@ -124,8 +151,15 @@ public class ClientService extends Service {
         }
 
         @Override
+        public void onClosed(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
+            updateNotification("连接已断开，5秒后重连...");
+            scheduleReconnect();
+        }
+
+        @Override
         public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, @Nullable okhttp3.Response response) {
-            updateNotification("连接失败: " + t.getMessage());
+            updateNotification("连接失败，5秒后重连...");
+            scheduleReconnect();
         }
     }
 
@@ -133,13 +167,15 @@ public class ClientService extends Service {
         try {
             Command command = gson.fromJson(commandJson, Command.class);
             if (command == null || command.type == null) return;
-
             switch (command.type) {
                 case "listFiles":
                     listFilesAndSend(ws, command.path, command.commandId);
                     break;
                 case "deleteFile":
                     deleteFileAndSend(ws, command.path, command.commandId);
+                    break;
+                case "startZip":
+                    startZipAndNotify(ws, command.path, command.deviceName);
                     break;
             }
         } catch (Exception e) {
@@ -186,6 +222,84 @@ public class ClientService extends Service {
         }
     }
 
+    private void startZipAndNotify(final WebSocket ws, final String path, final String deviceName) {
+        new Thread(() -> {
+            try {
+                File dirToZip = new File(path);
+                if (!dirToZip.exists() || !dirToZip.isDirectory()) {
+                    Log.e(TAG, "Directory to zip does not exist or is not a directory: " + path);
+                    return;
+                }
+
+                final long totalSize = getDirectorySize(dirToZip);
+                final long[] progress = {0L};
+
+                String safeDeviceName = (deviceName != null && !deviceName.isEmpty()) ? deviceName.replaceAll("[^a-zA-Z0-9.-]", "_") : "UnknownDevice";
+                String timeStamp = new SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.getDefault()).format(new Date());
+                String newFileName = dirToZip.getName() + "_" + safeDeviceName + "_" + timeStamp + ".zip";
+
+                updateNotification("正在打包: " + dirToZip.getName());
+
+                File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                if (!downloadDir.exists()) {
+                    downloadDir.mkdirs();
+                }
+                File outputZipFile = new File(downloadDir, newFileName);
+
+                try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outputZipFile))) {
+                    zipDirectory(dirToZip, dirToZip.getName(), zos, ws, totalSize, progress, path);
+                }
+
+                ZipReadyMessage message = new ZipReadyMessage(outputZipFile.getName(), outputZipFile.getAbsolutePath());
+                ws.send(gson.toJson(message));
+                updateNotification("打包完成: " + outputZipFile.getName());
+
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to zip directory and notify server", e);
+                updateNotification("打包失败");
+            }
+        }).start();
+    }
+
+    private long getDirectorySize(File dir) {
+        long length = 0;
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile()) {
+                    length += file.length();
+                } else if (file.isDirectory()) {
+                    length += getDirectorySize(file);
+                }
+            }
+        }
+        return length;
+    }
+
+    private void zipDirectory(File dir, String baseName, ZipOutputStream zos, WebSocket ws, long totalSize, long[] progressHolder, String originalPath) throws IOException {
+        File[] files = dir.listFiles();
+        byte[] buffer = new byte[8192];
+        if (files == null) return;
+        for (File file : files) {
+            String entryName = baseName + "/" + file.getName();
+            if (file.isDirectory()) {
+                zipDirectory(file, entryName, zos, ws, totalSize, progressHolder, originalPath);
+            } else {
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    zos.putNextEntry(new ZipEntry(entryName));
+                    int length;
+                    while ((length = fis.read(buffer)) > 0) {
+                        zos.write(buffer, 0, length);
+                    }
+                    zos.closeEntry();
+
+                    progressHolder[0] += file.length();
+                    ws.send(gson.toJson(new ZipProgressMessage(originalPath, progressHolder[0], totalSize)));
+                }
+            }
+        }
+    }
+
     private boolean deleteRecursive(File fileOrDirectory) {
         if (fileOrDirectory.isDirectory()) {
             File[] children = fileOrDirectory.listFiles();
@@ -206,10 +320,8 @@ public class ClientService extends Service {
         }
     }
 
-    private static class DownloadHttpServer extends NanoHTTPD {
-        public DownloadHttpServer() {
-            super(HTTP_PORT);
-        }
+    private class DownloadHttpServer extends NanoHTTPD {
+        public DownloadHttpServer() { super(HTTP_PORT); }
 
         @Override
         public Response serve(IHTTPSession session) {
@@ -221,15 +333,13 @@ public class ClientService extends Service {
                     return handleFileUpload(session);
                 }
 
-                if (Method.GET.equals(method) && ("/download".equals(uri) || "/zip".equals(uri))) {
+                if (Method.GET.equals(method) && "/download".equals(uri)) {
                     Map<String, List<String>> params = session.getParameters();
                     if (!params.containsKey("path") || params.get("path").isEmpty()) {
                         return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Error: 'path' parameter is missing.");
                     }
                     String path = URLDecoder.decode(params.get("path").get(0), "UTF-8");
-
-                    if ("/download".equals(uri)) return handleFileDownload(path);
-                    if ("/zip".equals(uri)) return handleZipDownload(path);
+                    return handleFileDownload(path);
                 }
 
                 return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Endpoint not found.");
@@ -279,61 +389,38 @@ public class ClientService extends Service {
                 return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "File not found: " + path);
             }
             try {
-                FileInputStream fis = new FileInputStream(file);
-                return newChunkedResponse(Response.Status.OK, "application/octet-stream", fis);
+                updateNotification("正在传输: " + file.getName());
+                DeletableFileInputStream fis = new DeletableFileInputStream(file);
+                Response res = newFixedLengthResponse(Response.Status.OK, "application/octet-stream", fis, file.length());
+                res.addHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
+                return res;
             } catch (FileNotFoundException e) {
                 return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Could not read file.");
             }
         }
 
-        private Response handleZipDownload(String path) {
-            File dirToZip = new File(path);
-            if (!dirToZip.exists() || !dirToZip.isDirectory()) {
-                return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Directory not found.");
-            }
-            try {
-                PipedInputStream in = new PipedInputStream();
-                PipedOutputStream out = new PipedOutputStream(in);
-                new Thread(() -> {
-                    try (ZipOutputStream zos = new ZipOutputStream(out)) {
-                        zipDirectory(dirToZip, dirToZip.getName(), zos);
-                    } catch (IOException e) {
-                        Log.e(TAG, "Zipping failed", e);
-                    } finally {
-                        try { out.close(); } catch (IOException e) { /* ignore */ }
-                    }
-                }).start();
+        private class DeletableFileInputStream extends FileInputStream {
+            private final File file;
 
-                Response res = newChunkedResponse(Response.Status.OK, "application/zip", in);
-                res.addHeader("Content-Disposition", "attachment; filename=\"" + dirToZip.getName() + ".zip\"");
-                return res;
-            } catch (IOException e) {
-                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Failed to create ZIP stream.");
+            public DeletableFileInputStream(File file) throws FileNotFoundException {
+                super(file);
+                this.file = file;
             }
-        }
 
-        private void zipDirectory(File dir, String baseName, ZipOutputStream zos) throws IOException {
-            File[] files = dir.listFiles();
-            byte[] buffer = new byte[8192];
-            if (files == null) return;
-            for (File file : files) {
-                String entryName = baseName + "/" + file.getName();
-                if (file.isDirectory()) {
-                    zipDirectory(file, entryName, zos);
-                } else {
-                    try (FileInputStream fis = new FileInputStream(file)) {
-                        zos.putNextEntry(new ZipEntry(entryName));
-                        int length;
-                        while ((length = fis.read(buffer)) > 0) {
-                            zos.write(buffer, 0, length);
-                        }
-                        zos.closeEntry();
+            @Override
+            public void close() throws IOException {
+                super.close();
+                if (file != null && file.exists()) {
+                    Log.d(TAG, "Deleting file after download: " + file.getAbsolutePath());
+                    if (!file.delete()) {
+                        Log.e(TAG, "Failed to delete file: " + file.getAbsolutePath());
                     }
                 }
             }
         }
     }
 
+    // --- Notification & JSON Helper Classes ---
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(CHANNEL_ID, "被控端连接服务", NotificationManager.IMPORTANCE_LOW);
@@ -352,9 +439,40 @@ public class ClientService extends Service {
         notificationManager.notify(NOTIFICATION_ID, createNotification(contentText));
     }
 
-    private static class Command { String type; String path; String commandId; }
-    private static class FileItem { public String name; public String path; public boolean isDirectory; public long size; public FileItem(File file) { this.name = file.getName(); this.path = file.getAbsolutePath(); this.isDirectory = file.isDirectory(); this.size = file.length(); } }
+    private static class Command { String type; String path; String commandId; String deviceName;}
+    private static class FileItem {
+        public String name;
+        public String path;
+        public boolean isDirectory;
+        public long size;
+
+        public FileItem(File file) {
+            this.name = file.getName();
+            this.path = file.getAbsolutePath();
+            this.isDirectory = file.isDirectory();
+            this.size = getFileSize(file);
+        }
+
+        private long getFileSize(File file) {
+            if (file.isFile()) {
+                return file.length();
+            }
+            if (file.isDirectory()) {
+                long length = 0;
+                File[] files = file.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        length += getFileSize(f);
+                    }
+                }
+                return length;
+            }
+            return 0;
+        }
+    }
     private static class FileListResponse { String type = "fileListResult"; String commandId; FileItem[] files; public FileListResponse(String commandId, FileItem[] files) { this.commandId = commandId; this.files = files; } }
     private static class ErrorResponse { String type = "errorResult"; String commandId; String error; public ErrorResponse(String commandId, String error) { this.commandId = commandId; this.error = error; } }
     private static class SimpleResponse { String type = "simpleResult"; String commandId; String status; public SimpleResponse(String commandId, String status) { this.commandId = commandId; this.status = status; } }
+    private static class ZipReadyMessage { String type = "zipReady"; String name; String path; public ZipReadyMessage(String name, String path) { this.name = name; this.path = path; } }
+    private static class ZipProgressMessage { String type = "zipProgress"; String path; long progress; long total; public ZipProgressMessage(String path, long progress, long total) { this.path = path; this.progress = progress; this.total = total; } }
 }
