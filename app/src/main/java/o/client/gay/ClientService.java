@@ -26,9 +26,13 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URLDecoder;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +46,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
+import okio.ByteString;
 
 public class ClientService extends Service {
 
@@ -49,11 +54,11 @@ public class ClientService extends Service {
     private static final String CHANNEL_ID = "ClientServiceChannel";
     private static final int NOTIFICATION_ID = 1;
     private static final int HTTP_PORT = 9999;
-    private static final long RECONNECT_DELAY_MS = 5000; // 5 seconds
+    private static final long RECONNECT_DELAY_MS = 5000;
 
     private OkHttpClient httpClient;
     private WebSocket webSocket;
-    private DownloadHttpServer downloadServer;
+    private DownloadHttpServer downloadServer; // Kept for upload functionality
     private final Gson gson = new Gson();
     private NotificationManager notificationManager;
     private Handler reconnectHandler;
@@ -76,11 +81,12 @@ public class ClientService extends Service {
                 .pingInterval(30, TimeUnit.SECONDS)
                 .build();
 
+        // The HTTP server is now ONLY for uploads. Downloads are handled via WebSocket.
         downloadServer = new DownloadHttpServer();
         try {
             downloadServer.start();
         } catch (IOException e) {
-            Log.e(TAG, "Error starting HTTP server", e);
+            Log.e(TAG, "Error starting HTTP server for uploads", e);
         }
     }
 
@@ -102,6 +108,23 @@ public class ClientService extends Service {
         stopForeground(true);
     }
 
+    private String getDeviceIpAddress() {
+        try {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements();) {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            Log.e(TAG, "IP address finding error", ex);
+        }
+        return null;
+    }
+
     private void connectToController() {
         if (isStopping) return;
 
@@ -116,10 +139,16 @@ public class ClientService extends Service {
 
         updateNotification("正在连接 " + controllerIp + "...");
 
-        Request request = new Request.Builder()
+        Request.Builder requestBuilder = new Request.Builder()
                 .url("ws://" + controllerIp + ":9998")
-                .addHeader("Device-Name", Build.MODEL)
-                .build();
+                .addHeader("Device-Name", Build.MODEL);
+
+        String deviceIp = getDeviceIpAddress();
+        if (deviceIp != null) {
+            requestBuilder.addHeader("X-Device-IP", deviceIp);
+        }
+
+        Request request = requestBuilder.build();
 
         if (webSocket != null) {
             webSocket.cancel();
@@ -177,14 +206,51 @@ public class ClientService extends Service {
                 case "startZip":
                     startZipAndNotify(ws, command.path, command.deviceName);
                     break;
+                case "fetchFile": // New command for WebSocket download
+                    streamFileOverWebSocket(ws, command.path);
+                    break;
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error processing command", e);
+            Log.e(TAG, "Error processing command: " + commandJson, e);
+        }
+    }
+    
+    private void streamFileOverWebSocket(final WebSocket ws, final String path) {
+        new Thread(() -> {
+            File fileToStream = new File(path);
+            if (!fileToStream.exists() || !fileToStream.isFile()) {
+                sendJsonMessage(ws, new FetchFileErrorMessage(path, "File not found or is a directory."));
+                return;
+            }
+
+            try (FileInputStream fis = new FileInputStream(fileToStream)) {
+                byte[] buffer = new byte[8192]; // 8KB chunks
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    ws.send(ByteString.of(buffer, 0, bytesRead));
+                }
+                // Signal completion
+                sendJsonMessage(ws, new FetchFileCompleteMessage(path));
+                Log.d(TAG, "Finished streaming file: " + path);
+            } catch (Exception e) {
+                Log.e(TAG, "Error streaming file: " + path, e);
+                sendJsonMessage(ws, new FetchFileErrorMessage(path, e.getMessage()));
+            }
+        }).start();
+    }
+
+    private void sendJsonMessage(WebSocket ws, Object message) {
+        try {
+            ws.send(gson.toJson(message));
+        } catch(Exception e) {
+            Log.e(TAG, "Failed to send JSON message", e);
         }
     }
 
     private void listFilesAndSend(WebSocket ws, String path, String commandId) {
         try {
+            // Android 11 (API 30) and above requires MANAGE_EXTERNAL_STORAGE for broad access.
+            // Ensure this permission is granted in SettingsActivity.
             File directory = (path != null && !path.isEmpty()) ? new File(path) : Environment.getExternalStorageDirectory();
             if (!directory.isDirectory()) {
                 sendError(ws, commandId, "Invalid path: Not a directory.");
@@ -319,7 +385,8 @@ public class ClientService extends Service {
             Log.e(TAG, "Failed to send error message.", e);
         }
     }
-
+    
+    // This server is now only used for uploads.
     private class DownloadHttpServer extends NanoHTTPD {
         public DownloadHttpServer() { super(HTTP_PORT); }
 
@@ -332,16 +399,7 @@ public class ClientService extends Service {
                 if (Method.POST.equals(method) && "/upload".equals(uri)) {
                     return handleFileUpload(session);
                 }
-
-                if (Method.GET.equals(method) && "/download".equals(uri)) {
-                    Map<String, List<String>> params = session.getParameters();
-                    if (!params.containsKey("path") || params.get("path").isEmpty()) {
-                        return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "Error: 'path' parameter is missing.");
-                    }
-                    String path = URLDecoder.decode(params.get("path").get(0), "UTF-8");
-                    return handleFileDownload(path);
-                }
-
+                // The /download endpoint is no longer used.
                 return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Endpoint not found.");
 
             } catch (Exception e) {
@@ -360,8 +418,8 @@ public class ClientService extends Service {
             }
 
             Map<String, List<String>> params = session.getParameters();
-            String targetDirPath = params.containsKey("path") ? URLDecoder.decode(params.get("path").get(0), "UTF-8") : "";
-            String originalFilename = params.containsKey("filename") ? URLDecoder.decode(params.get("filename").get(0), "UTF-8") : "unknown_file";
+            String targetDirPath = params.containsKey("path") ? params.get("path").get(0) : "";
+            String originalFilename = params.containsKey("filename") ? params.get("filename").get(0) : "unknown_file";
 
             File targetDir = targetDirPath.isEmpty() ? Environment.getExternalStorageDirectory() : new File(targetDirPath);
             if (!targetDir.exists() && !targetDir.mkdirs()) {
@@ -382,45 +440,8 @@ public class ClientService extends Service {
 
             return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "File uploaded to " + destination.getAbsolutePath());
         }
-
-        private Response handleFileDownload(String path) {
-            File file = new File(path);
-            if (!file.exists() || !file.isFile()) {
-                return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "File not found: " + path);
-            }
-            try {
-                updateNotification("正在传输: " + file.getName());
-                DeletableFileInputStream fis = new DeletableFileInputStream(file);
-                Response res = newFixedLengthResponse(Response.Status.OK, "application/octet-stream", fis, file.length());
-                res.addHeader("Content-Disposition", "attachment; filename=\"" + file.getName() + "\"");
-                return res;
-            } catch (FileNotFoundException e) {
-                return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Could not read file.");
-            }
-        }
-
-        private class DeletableFileInputStream extends FileInputStream {
-            private final File file;
-
-            public DeletableFileInputStream(File file) throws FileNotFoundException {
-                super(file);
-                this.file = file;
-            }
-
-            @Override
-            public void close() throws IOException {
-                super.close();
-                if (file != null && file.exists()) {
-                    Log.d(TAG, "Deleting file after download: " + file.getAbsolutePath());
-                    if (!file.delete()) {
-                        Log.e(TAG, "Failed to delete file: " + file.getAbsolutePath());
-                    }
-                }
-            }
-        }
     }
-
-    // --- Notification & JSON Helper Classes ---
+    
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(CHANNEL_ID, "被控端连接服务", NotificationManager.IMPORTANCE_LOW);
@@ -439,6 +460,7 @@ public class ClientService extends Service {
         notificationManager.notify(NOTIFICATION_ID, createNotification(contentText));
     }
 
+    // --- JSON Message Classes ---
     private static class Command { String type; String path; String commandId; String deviceName;}
     private static class FileItem {
         public String name;
@@ -458,21 +480,20 @@ public class ClientService extends Service {
                 return file.length();
             }
             if (file.isDirectory()) {
-                long length = 0;
-                File[] files = file.listFiles();
-                if (files != null) {
-                    for (File f : files) {
-                        length += getFileSize(f);
-                    }
-                }
-                return length;
+                // Return -1 for directories to avoid slow recursive calculation
+                return -1;
             }
             return 0;
         }
     }
+
     private static class FileListResponse { String type = "fileListResult"; String commandId; FileItem[] files; public FileListResponse(String commandId, FileItem[] files) { this.commandId = commandId; this.files = files; } }
     private static class ErrorResponse { String type = "errorResult"; String commandId; String error; public ErrorResponse(String commandId, String error) { this.commandId = commandId; this.error = error; } }
     private static class SimpleResponse { String type = "simpleResult"; String commandId; String status; public SimpleResponse(String commandId, String status) { this.commandId = commandId; this.status = status; } }
     private static class ZipReadyMessage { String type = "zipReady"; String name; String path; public ZipReadyMessage(String name, String path) { this.name = name; this.path = path; } }
     private static class ZipProgressMessage { String type = "zipProgress"; String path; long progress; long total; public ZipProgressMessage(String path, long progress, long total) { this.path = path; this.progress = progress; this.total = total; } }
+    
+    // New message types for file tunneling
+    private static class FetchFileCompleteMessage { String type = "fetchFileComplete"; String path; public FetchFileCompleteMessage(String path) { this.path = path; } }
+    private static class FetchFileErrorMessage { String type = "fetchFileError"; String path; String error; public FetchFileErrorMessage(String path, String error) { this.path = path; this.error = error; } }
 }
