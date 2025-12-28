@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">哦！我的基佬</string>
+    <string name="ip">21.255.255.25</string>
 
     <string-array name="overwrite_options">
         <item>自动添加编号 (推荐)</item>
