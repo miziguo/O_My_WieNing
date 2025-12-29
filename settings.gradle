@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FileCopier"
+rootProject.name = "O! My wiening"
 include ':app'
