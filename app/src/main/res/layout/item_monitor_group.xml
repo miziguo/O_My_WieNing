@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tv_item_source_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="源: /path/to/source"
+            android:textStyle="bold"
+            android:ellipsize="start"
+            android:singleLine="true"/>
+
+        <TextView
+            android:id="@+id/tv_item_target_path"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="目标: /path/to/target"
+            android:ellipsize="start"
+            android:singleLine="true"/>
+
+        <ImageButton
+            android:id="@+id/btn_item_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@android:drawable/ic_menu_delete"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:layout_gravity="end"
+            android:contentDescription="删除"/>
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
