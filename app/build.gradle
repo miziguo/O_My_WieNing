@@ -19,10 +19,11 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled false // Temporarily disable
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     buildFeatures {
         // 确保这一行是 true
         buildConfig true
@@ -34,21 +35,20 @@ android {
 }
 
 dependencies {
-    // 兼容性和 UI 依赖
+    // UI 和兼容性依赖
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.8.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.cardview:cardview:1.0.0'
 
-    // 核心修复点：SAF 文件操作依赖 (解决程序包不存在错误)
+    // SAF 文件操作依赖
     implementation 'androidx.documentfile:documentfile:1.0.1'
 
-    // 测试依赖...
+    // Service 和 Activity 通信依赖 (LocalBroadcastManager)
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+
+    // 测试依赖
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'androidx.cardview:cardview:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.android.material:material:1.8.0'
-    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
 }
