@@ -21,11 +21,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -54,23 +52,18 @@ public class MonitorService extends Service {
     private static final String CHANNEL_ID = "FileMonitorChannel";
     private static final int NOTIFICATION_ID = 1;
     private static final long RESTART_DELAY_MS = 1000;
-
     public static final String ACTION_START = "ACTION_START";
     public static final String ACTION_STOP = "ACTION_STOP";
-
     public static final String ACTION_SERVICE_STATUS = "o.my.wiening.SERVICE_STATUS";
     public static final String EXTRA_IS_RUNNING = "is_running";
     public static final String EXTRA_MESSAGE = "status_message";
-
     private NotificationManager nm;
     private WindowManager windowManager;
     private View floatingView;
     private SharedPreferences sharedPrefs;
     private Handler mainHandler;
-
     private ExecutorService executorService;
     private final List<WatchService> activeWatchers = Collections.synchronizedList(new ArrayList<>());
-
     private static final AtomicBoolean serviceIsRunning = new AtomicBoolean(false);
 
     public static boolean isRunning() {
@@ -89,35 +82,27 @@ public class MonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) return START_NOT_STICKY;
-
         String action = intent.getAction();
-
         if (ACTION_STOP.equals(action)) {
             Log.i(TAG, "收到停止指令");
             stopMonitoring();
             return START_NOT_STICKY;
         }
-
         if (action == null || ACTION_START.equals(action)) {
-            // 立即发送广播，让UI响应
             sendServiceStatusBroadcast(true, "准备中...");
             startForeground(NOTIFICATION_ID, buildNotification("正在准备..."));
-
             Serializable extra = intent.getSerializableExtra("MONITOR_GROUPS");
             if (extra instanceof ArrayList) {
                 List<MonitorGroup> groups = (ArrayList<MonitorGroup>) extra;
-
                 if (!groups.isEmpty()) {
                     if (serviceIsRunning.compareAndSet(false, true)) {
                         Log.i(TAG, "开始监控 " + groups.size() + " 个组");
                         startAllMonitoring(groups);
                     } else {
                         Toast.makeText(this, "服务已在运行中", Toast.LENGTH_SHORT).show();
-                        // 补发一个状态广播，确保UI同步
                         sendServiceStatusBroadcast(true, "");
                     }
                 } else {
-                    // 列表为空也是一个启动错误
                     handleFatalError("启动失败：监控列表为空。");
                 }
             } else {
@@ -130,13 +115,10 @@ public class MonitorService extends Service {
     private void startAllMonitoring(List<MonitorGroup> groups) {
         executorService = Executors.newCachedThreadPool();
         activeWatchers.clear();
-
         sendServiceStatusBroadcast(true, "正在启动 " + groups.size() + " 个监控...");
-
         for (MonitorGroup group : groups) {
             executorService.submit(() -> startSingleMonitoringThread(group));
         }
-
         updateNotification("正在监控 " + groups.size() + " 个目录");
         updateFloatingWindow("");
     }
@@ -144,7 +126,6 @@ public class MonitorService extends Service {
     private void stopMonitoring() {
         if (serviceIsRunning.compareAndSet(true, false)) {
             Log.i(TAG, "正在停止所有监控...");
-
             synchronized (activeWatchers) {
                 for (WatchService watcher : activeWatchers) {
                     try {
@@ -155,14 +136,11 @@ public class MonitorService extends Service {
                 }
                 activeWatchers.clear();
             }
-
             if (executorService != null && !executorService.isShutdown()) {
                 executorService.shutdownNow();
             }
-
             stopForeground(true);
             hideFloatingWindow();
-
             sendServiceStatusBroadcast(false, "监控已停止");
             stopSelf();
         }
@@ -173,40 +151,28 @@ public class MonitorService extends Service {
         String dstPath = group.getTargetPath();
         File srcDir = new File(srcPath);
         File dstDir = new File(dstPath);
-
         if (!srcDir.isDirectory()) {
             Log.e(TAG, "目录无效，跳过: " + srcPath);
             return;
         }
-
         WatchService watcher = null;
         try {
             watcher = FileSystems.getDefault().newWatchService();
             Path srcPathObj = Paths.get(srcPath);
-            srcPathObj.register(watcher,
-                    StandardWatchEventKinds.ENTRY_CREATE,
-                    StandardWatchEventKinds.ENTRY_MODIFY,
-                    StandardWatchEventKinds.ENTRY_DELETE);
-
+            srcPathObj.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
             activeWatchers.add(watcher);
             Log.i(TAG, "成功启动对 " + srcPath + " 的监控");
-
             Map<String, Long> knownFiles = initKnownFiles(srcDir);
-
             while (serviceIsRunning.get()) {
                 WatchKey key = watcher.poll(2, TimeUnit.SECONDS);
-
                 if (key == null) {
                     continue;
                 }
-
                 for (WatchEvent<?> event : key.pollEvents()) {
                     WatchEvent.Kind<?> kind = event.kind();
                     if (kind == StandardWatchEventKinds.OVERFLOW) continue;
-
                     Path fileNamePath = (Path) event.context();
                     File changedFile = new File(srcDir, fileNamePath.toFile().getName());
-
                     if (kind == StandardWatchEventKinds.ENTRY_CREATE || kind == StandardWatchEventKinds.ENTRY_MODIFY) {
                         Thread.sleep(150);
                         checkAndCopySingleFile(changedFile, dstDir, knownFiles);
@@ -214,7 +180,6 @@ public class MonitorService extends Service {
                         knownFiles.remove(changedFile.getName());
                     }
                 }
-
                 if (!key.reset()) {
                     Log.w(TAG, "监控目录失效: " + srcPath);
                     break;
@@ -229,9 +194,7 @@ public class MonitorService extends Service {
         } finally {
             Log.i(TAG, "监控线程结束: " + srcPath);
             if (watcher != null) {
-                try {
-                    watcher.close();
-                } catch (IOException e) { /* ignore */ }
+                try { watcher.close(); } catch (IOException e) { /* ignore */ }
                 activeWatchers.remove(watcher);
             }
         }
@@ -264,34 +227,28 @@ public class MonitorService extends Service {
         super.onDestroy();
     }
 
-    @Nullable
-    @Override
-    public IBinder onBind(Intent i) {
-        return null;
-    }
+    @Nullable @Override
+    public IBinder onBind(Intent i) { return null; }
 
     private void checkAndCopySingleFile(File srcFile, File dstDir, Map<String, Long> knownFiles) {
         if (!srcFile.exists() || !srcFile.isFile()) return;
-
-        String name = srcFile.getName();
         long lastMod = srcFile.lastModified();
-
+        String originalName = srcFile.getName();
+        if (knownFiles.containsKey(originalName) && knownFiles.get(originalName) >= lastMod) {
+            return;
+        }
         boolean isFilterEnabled = sharedPrefs.getBoolean(SettingsActivity.KEY_CONTENT_FILTER_ENABLED, false);
         if (isFilterEnabled) {
             String keywordsString = sharedPrefs.getString(SettingsActivity.KEY_FILTER_KEYWORDS, "");
-            if (!checkFileNameFilter(name, keywordsString.split(","))) {
+            if (!checkFileNameFilter(originalName, keywordsString.split(","))) {
                 return;
             }
         }
-
-        if (knownFiles.containsKey(name) && knownFiles.get(name) >= lastMod) {
-            return;
-        }
-
-        updateFloatingWindow("复制中: " + name);
-        if (doCopy(srcFile, dstDir)) {
-            knownFiles.put(name, lastMod);
-            mainHandler.postDelayed(() -> updateFloatingWindow(""), 1500);
+        updateFloatingWindow("复制中: " + originalName);
+        String actualFileName = doCopy(srcFile, dstDir);
+        if (actualFileName != null) {
+            knownFiles.put(originalName, lastMod);
+            mainHandler.postDelayed(() -> updateFloatingWindow(""), 500);
         }
     }
 
@@ -326,38 +283,31 @@ public class MonitorService extends Service {
         return !hasValidKeyword;
     }
 
-    private boolean doCopy(File srcFile, File dstDir) {
-        int overwriteModeIndex = sharedPrefs.getInt(SettingsActivity.KEY_OVERWRITE_MODE_INDEX, 0);
+    // ★★★ CORE FIX: Removed all overwrite logic, forcing overwrite every time ★★★
+    private String doCopy(File srcFile, File dstDir) {
         File targetFile = new File(dstDir, srcFile.getName());
 
         if (targetFile.exists()) {
-            if (overwriteModeIndex == 0) { // Skip
-                return false;
-            } else if (overwriteModeIndex == 1) { // Overwrite
-                targetFile.delete();
-            }
+            targetFile.delete(); // Always delete if exists
         }
 
-        try (FileInputStream in = new FileInputStream(srcFile);
-             FileOutputStream out = new FileOutputStream(targetFile)) {
+        try (FileInputStream in = new FileInputStream(srcFile); FileOutputStream out = new FileOutputStream(targetFile)) {
             byte[] buf = new byte[8192];
             int len;
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
             }
-            Log.i(TAG, "成功复制: " + srcFile.getName() + " -> " + dstDir.getName());
-            return true;
+            Log.i(TAG, "成功覆盖: " + srcFile.getName() + " -> " + targetFile.getName());
+            return targetFile.getName();
         } catch (Exception e) {
             Log.e(TAG, "复制文件失败: " + srcFile.getName(), e);
             updateFloatingWindow("复制失败: " + srcFile.getName());
-            return false;
+            return null;
         }
     }
 
     private void showFloatingWindow(String message) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            return;
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return;
         mainHandler.post(() -> {
             if (floatingView == null) {
                 windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);

@@ -3,8 +3,8 @@
 
 
     <string-array name="overwrite_options">
-        <item>自动添加编号 (推荐)</item>
         <item>直接覆盖同名文件</item>
+        <item>自动添加编号坏了，详情请见关于</item>
     </string-array>
 
     <string-array name="theme_color_names">
@@ -17,7 +17,7 @@
         <item>挑单紫</item>
         <item>大吊黑</item>
         <item>泽浩白</item>
-        <item>自定义</item>
+        <item>战胜归来</item>
     </string-array>
 
     <string-array name="theme_color_values">
@@ -30,21 +30,21 @@
         <item>#FF800080</item> <!-- Purple -->
         <item>#FF000000</item> <!-- Black -->
         <item>#FFFFFFFF</item> <!-- White -->
-        <item>CUSTOM</item>
+        <item>#FF198964</item>
     </string-array>
 
     <string-array name="text_color_names">
         <item>大吊黑</item>
         <item>敖辅灰</item>
         <item>泽浩白</item>
-        <item>自定义</item>
+        <item>战胜归来</item>
     </string-array>
 
     <string-array name="text_color_values">
         <item>#FF000000</item> <!-- Black -->
         <item>#FF888888</item> <!-- Gray -->
         <item>#FFFFFFFF</item> <!-- White -->
-        <item>CUSTOM</item>
+        <item>#FF198964</item>
     </string-array>
     <string name="title_general_text_color">通用文字颜色</string>
 </resources>

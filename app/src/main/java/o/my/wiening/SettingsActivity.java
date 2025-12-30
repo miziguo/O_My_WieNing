@@ -39,17 +39,20 @@ import androidx.cardview.widget.CardView;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    // --- Keys for SharedPreferences ---
     public static final String PREF_NAME = "MonitorSettings";
     public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
     public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled";
     public static final String KEY_FILTER_KEYWORDS = "filter_keywords";
+
+    // Theme Keys
     public static final String KEY_ACTIONBAR_COLOR_INDEX = "actionbar_color_index";
     public static final String KEY_BUTTON_COLOR_INDEX = "button_color_index";
     public static final String KEY_BACKGROUND_IMAGE_URI = "background_image_uri";
     public static final String KEY_CARD_ALPHA = "card_alpha";
     public static final String KEY_CUSTOM_ACTIONBAR_COLOR = "custom_actionbar_color";
     public static final String KEY_CUSTOM_BUTTON_COLOR = "custom_button_color";
+
+    // New, separate keys for text colors
     public static final String KEY_BUTTON_TEXT_COLOR_INDEX = "button_text_color_index";
     public static final String KEY_GENERAL_TEXT_COLOR_INDEX = "general_text_color_index";
     public static final String KEY_CUSTOM_BUTTON_TEXT_COLOR = "custom_button_text_color";
@@ -72,8 +75,8 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView tvLabelButtonTextColor, tvLabelGeneralTextColor;
 
     // --- Data ---
-    private String[] themeColorValues;
-    private String[] textColorValues;
+    private String[] themeColorNames, themeColorValues;
+    private String[] textColorNames, textColorValues;
     private boolean isSpinnerInitialising = true;
 
     @Override
@@ -82,7 +85,9 @@ public class SettingsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_settings);
 
         sharedPrefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        themeColorNames = getResources().getStringArray(R.array.theme_color_names);
         themeColorValues = getResources().getStringArray(R.array.theme_color_values);
+        textColorNames = getResources().getStringArray(R.array.text_color_names);
         textColorValues = getResources().getStringArray(R.array.text_color_values);
 
         initViews();
@@ -105,8 +110,8 @@ public class SettingsActivity extends AppCompatActivity {
         // Re-set spinner selections without triggering listener
         spinnerActionBarColor.setSelection(sharedPrefs.getInt(KEY_ACTIONBAR_COLOR_INDEX, 7), false);
         spinnerButtonColor.setSelection(sharedPrefs.getInt(KEY_BUTTON_COLOR_INDEX, 7), false);
-        spinnerButtonTextColor.setSelection(sharedPrefs.getInt(KEY_BUTTON_TEXT_COLOR_INDEX, 2), false);
-        spinnerGeneralTextColor.setSelection(sharedPrefs.getInt(KEY_GENERAL_TEXT_COLOR_INDEX, 0), false);
+        spinnerButtonTextColor.setSelection(sharedPrefs.getInt(KEY_BUTTON_TEXT_COLOR_INDEX, 2), false); // Default white
+        spinnerGeneralTextColor.setSelection(sharedPrefs.getInt(KEY_GENERAL_TEXT_COLOR_INDEX, 0), false); // Default black
         updateAllUI();
         isSpinnerInitialising = false;
     }
@@ -227,41 +232,74 @@ public class SettingsActivity extends AppCompatActivity {
         return Color.parseColor(defaultColor);
     }
 
+    // ★★★ CORE FIX: Replaced lambda with explicit anonymous class for reliability ★★★
     private void setupColorSpinners() {
         ArrayAdapter<CharSequence> themeColorAdapter = ArrayAdapter.createFromResource(this, R.array.theme_color_names, android.R.layout.simple_spinner_item);
         themeColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
         ArrayAdapter<CharSequence> textColorAdapter = ArrayAdapter.createFromResource(this, R.array.text_color_names, android.R.layout.simple_spinner_item);
         textColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 
-        setupSpinner(spinnerActionBarColor, themeColorAdapter, KEY_ACTIONBAR_COLOR_INDEX, 7, (pos) -> {
-            if (pos == themeColorValues.length) showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos);
-            else updateAllUI();
-        });
-        setupSpinner(spinnerButtonColor, themeColorAdapter, KEY_BUTTON_COLOR_INDEX, 7, (pos) -> {
-            if (pos == themeColorValues.length) showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos);
-            else updateAllUI();
-        });
-        setupSpinner(spinnerButtonTextColor, textColorAdapter, KEY_BUTTON_TEXT_COLOR_INDEX, 2, (pos) -> {
-            if (pos == textColorValues.length) showColorPickerDialog(KEY_CUSTOM_BUTTON_TEXT_COLOR, KEY_BUTTON_TEXT_COLOR_INDEX, pos);
-            else updateAllUI();
-        });
-        setupSpinner(spinnerGeneralTextColor, textColorAdapter, KEY_GENERAL_TEXT_COLOR_INDEX, 0, (pos) -> {
-            if (pos == textColorValues.length) showColorPickerDialog(KEY_CUSTOM_GENERAL_TEXT_COLOR, KEY_GENERAL_TEXT_COLOR_INDEX, pos);
-            else updateAllUI();
-        });
-    }
-
-    private interface OnColorSelected { void onSelect(int position); }
-
-    private void setupSpinner(Spinner spinner, ArrayAdapter adapter, String key, int def, OnColorSelected listener) {
-        spinner.setAdapter(adapter);
-        spinner.setSelection(sharedPrefs.getInt(key, def), false);
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+        // Setup ActionBar Color Spinner
+        spinnerActionBarColor.setAdapter(themeColorAdapter);
+        spinnerActionBarColor.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (isSpinnerInitialising) return;
-                sharedPrefs.edit().putInt(key, position).apply();
-                listener.onSelect(position);
+                sharedPrefs.edit().putInt(KEY_ACTIONBAR_COLOR_INDEX, position).apply();
+                if ("自定义".equals(parent.getItemAtPosition(position).toString())) {
+                    showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, position);
+                } else {
+                    updateAllUI();
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // Setup Button Color Spinner
+        spinnerButtonColor.setAdapter(themeColorAdapter);
+        spinnerButtonColor.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (isSpinnerInitialising) return;
+                sharedPrefs.edit().putInt(KEY_BUTTON_COLOR_INDEX, position).apply();
+                if ("自定义".equals(parent.getItemAtPosition(position).toString())) {
+                    showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, position);
+                } else {
+                    updateAllUI();
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // Setup Button Text Color Spinner
+        spinnerButtonTextColor.setAdapter(textColorAdapter);
+        spinnerButtonTextColor.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (isSpinnerInitialising) return;
+                sharedPrefs.edit().putInt(KEY_BUTTON_TEXT_COLOR_INDEX, position).apply();
+                if ("自定义".equals(parent.getItemAtPosition(position).toString())) {
+                    showColorPickerDialog(KEY_CUSTOM_BUTTON_TEXT_COLOR, KEY_BUTTON_TEXT_COLOR_INDEX, position);
+                } else {
+                    updateAllUI();
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // Setup General Text Color Spinner
+        spinnerGeneralTextColor.setAdapter(textColorAdapter);
+        spinnerGeneralTextColor.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (isSpinnerInitialising) return;
+                sharedPrefs.edit().putInt(KEY_GENERAL_TEXT_COLOR_INDEX, position).apply();
+                if ("自定义".equals(parent.getItemAtPosition(position).toString())) {
+                    showColorPickerDialog(KEY_CUSTOM_GENERAL_TEXT_COLOR, KEY_GENERAL_TEXT_COLOR_INDEX, position);
+                } else {
+                    updateAllUI();
+                }
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
@@ -308,12 +346,11 @@ public class SettingsActivity extends AppCompatActivity {
         int generalTextColor = getTextColorFromIndex(sharedPrefs.getInt(KEY_GENERAL_TEXT_COLOR_INDEX, 0), KEY_CUSTOM_GENERAL_TEXT_COLOR, "#000000");
         int cardAlpha = sharedPrefs.getInt(KEY_CARD_ALPHA, 255);
 
-        // ★★★ CORE FIX: Apply color to ActionBar background AND title ★★★
+        // Apply ActionBar Color & Title Color
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setBackgroundDrawable(new ColorDrawable(actionBarColor));
             SpannableString title = new SpannableString(actionBar.getTitle() != null ? actionBar.getTitle() : "设置");
-            // ActionBar title uses button text color as requested
             title.setSpan(new ForegroundColorSpan(buttonTextColor), 0, title.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
             actionBar.setTitle(title);
         }
@@ -405,7 +442,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void setupAboutButton() {
         btnAbout.setOnClickListener(v -> {
-            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2025 MUW Group Studio\nデモクラシーは勝利を収めて帰還する！";
+            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2025 MUW Group Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49了，这两个bug（文件编号和自定义颜色）是不可能修的";
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("关于")
                     .setMessage(message)
