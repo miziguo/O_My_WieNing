@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/settings_scroll_view" 
+    android:id="@+id/settings_scroll_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -12,11 +12,15 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_file_options"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -24,6 +28,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_file_options_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="文件处理设置"
@@ -35,31 +40,44 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"/>
-
-                <Switch
-                    android:id="@+id/switchDeleteMirror"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="同步删除文件" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_filter_options"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp">
-                <Switch
-                    android:id="@+id/switchContentFilter"
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="仅复制包含关键词的文件" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- ★★★ 核心修复：将重复的 ID 修改为正确的、唯一的 ID ★★★ -->
+                    <TextView
+                        android:id="@+id/tv_filter_options_title"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="仅复制包含关键词的文件"
+                        android:textSize="16sp" />
+
+                    <Switch
+                        android:id="@+id/switchContentFilter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
 
                 <EditText
                     android:id="@+id/etFilterKeywords"
@@ -68,13 +86,17 @@
                     android:hint="关键词,用逗号分隔"
                     android:textSize="14sp" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_personalization"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -82,6 +104,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_personalization_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="个性化设置"
@@ -89,6 +112,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tv_label_actionbar_color"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="标题栏颜色" />
@@ -98,6 +122,7 @@
                     android:layout_height="wrap_content"/>
 
                 <TextView
+                    android:id="@+id/tv_label_button_color"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="按钮背景颜色" />
@@ -107,15 +132,29 @@
                     android:layout_height="wrap_content"/>
 
                 <TextView
+                    android:id="@+id/tv_label_button_text_color"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="文字颜色" />
+                    android:text="按钮文字颜色" />
                 <Spinner
-                    android:id="@+id/spinnerTextColor"
+                    android:id="@+id/spinnerButtonTextColor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"/>
+
+                <!-- ★ 新增: "通用文字颜色" 的设置 -->
+                <TextView
+                    android:id="@+id/tv_label_general_text_color"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/title_general_text_color" />
+                <Spinner
+                    android:id="@+id/spinnerGeneralTextColor"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"/>
 
                 <TextView
+                    android:id="@+id/tv_label_card_alpha"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -125,7 +164,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:max="255"/>
-                
+
                 <Button
                     android:id="@+id/btnSelectBackgroundImage"
                     android:layout_width="wrap_content"
@@ -140,7 +179,7 @@
                     android:text="恢复默认背景"/>
 
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
         <Button
             android:id="@+id/btnAbout"

@@ -5,22 +5,24 @@
     android:id="@+id/main_root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
     tools:context=".MainActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_warning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -29,43 +31,52 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_warning_message"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责"
-                    android:textSize="15sp"
                     android:textColor="#FF0000"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
-        <!-- 在 activity_main.xml 中 -->
-        <!-- ... other views ... -->
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_monitor_groups"
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/fab_add_group"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="end|bottom"
-            android:layout_margin="16dp"
-            android:src="@android:drawable/ic_input_add"
-            android:contentDescription="添加监控组" />
+            android:layout_marginBottom="16dp">
 
-        <!-- ... other views ... -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_monitor_groups"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="120dp"
+                tools:listitem="@layout/item_monitor_group" />
 
+            <ImageButton
+                android:id="@+id/fab_add_group"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_alignEnd="@id/rv_monitor_groups"
+                android:layout_alignBottom="@id/rv_monitor_groups"
+                android:layout_margin="16dp"
+                android:background="@drawable/oval_button_background"
+                android:contentDescription="添加监控组"
+                android:elevation="6dp"
+                android:src="@android:drawable/ic_input_add"
+                app:tint="@android:color/white" />
+        </RelativeLayout>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -91,16 +102,18 @@
                     android:visibility="gone"
                     tools:text="🤫 你发现彩蛋了" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_controls"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -113,32 +126,34 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="开始监控"
+                    android:backgroundTint="#000000"
                     android:enabled="false"
-                    android:textColor="@android:color/white"
-                    android:backgroundTint="#000000"/>
+                    android:text="开始监控"
+                    android:textColor="@android:color/white" />
 
                 <Button
                     android:id="@+id/btnStop"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:text="停止监控"
+                    android:layout_weight="1"
+                    android:backgroundTint="#000000"
                     android:enabled="false"
-                    android:textColor="@android:color/white"
-                    android:backgroundTint="#000000"/>
+                    android:text="停止监控"
+                    android:textColor="@android:color/white" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/cvPermissions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -147,6 +162,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_permission_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="权限和后台稳定性"
@@ -155,42 +171,45 @@
 
                 <Button
                     android:id="@+id/btnOverlayPermission"
+                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="📁 启用全部文件访问权限（核心功能）"
-                    android:visibility="gone"
-                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:backgroundTint="#FFCC00"
-                    android:textColor="#000000"
+                    android:drawableTint="#000000"
                     android:padding="12dp"
-                    android:drawableTint="#000000"/>
+                    android:text="
+                    启用全部文件访问权限（核心功能）"
+                    android:textColor="#000000"
+                    android:visibility="gone" />
 
                 <Button
                     android:id="@+id/btnBatteryOptimization"
+                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="🔴 修复后台运行问题 (点击设置白名单)"
-                    android:visibility="gone"
-                    style="@style/Widget.AppCompat.Button.Borderless.Colored"
                     android:backgroundTint="#FFCC00"
-                    android:textColor="#000000"
+                    android:drawableTint="#000000"
                     android:padding="12dp"
-                    android:drawableTint="#000000"/>
+                    android:text="设置电池策略为不限制"
+                    android:textColor="#000000"
+                    android:visibility="gone" />
 
             </LinearLayout>
 
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_version"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -206,16 +225,18 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
-        <androidx.cardview.widget.CardView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_about"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#f0f0f0"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#f0f0f0">
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -224,28 +245,30 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tv_about_title1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="本软件由miziguo开发"
                     android:textSize="18sp"
                     android:textStyle="bold" />
+
                 <TextView
+                    android:id="@+id/tv_about_title2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="©2023-2025 miziguo Studio"
+                    android:text="©2025 MUW Group Studio"
                     android:textSize="18sp"
                     android:textStyle="bold" />
+
                 <TextView
+                    android:id="@+id/tv_about_copyright"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="其实根本就没有版权"
                     android:textSize="10sp"
-                    android:textColor="#FF888888"
                     android:textStyle="italic" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </ScrollView>

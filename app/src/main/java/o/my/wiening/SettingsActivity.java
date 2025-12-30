@@ -16,6 +16,7 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
+import android.text.util.Linkify;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
@@ -27,6 +28,7 @@ import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -37,34 +39,42 @@ import androidx.cardview.widget.CardView;
 
 public class SettingsActivity extends AppCompatActivity {
 
+    // --- Keys for SharedPreferences ---
     public static final String PREF_NAME = "MonitorSettings";
     public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
-    public static final String KEY_DELETE_MIRROR = "delete_mirror";
     public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled";
     public static final String KEY_FILTER_KEYWORDS = "filter_keywords";
     public static final String KEY_ACTIONBAR_COLOR_INDEX = "actionbar_color_index";
     public static final String KEY_BUTTON_COLOR_INDEX = "button_color_index";
-    public static final String KEY_TEXT_COLOR_INDEX = "text_color_index";
     public static final String KEY_BACKGROUND_IMAGE_URI = "background_image_uri";
     public static final String KEY_CARD_ALPHA = "card_alpha";
-
     public static final String KEY_CUSTOM_ACTIONBAR_COLOR = "custom_actionbar_color";
     public static final String KEY_CUSTOM_BUTTON_COLOR = "custom_button_color";
-    public static final String KEY_CUSTOM_TEXT_COLOR = "custom_text_color";
+    public static final String KEY_BUTTON_TEXT_COLOR_INDEX = "button_text_color_index";
+    public static final String KEY_GENERAL_TEXT_COLOR_INDEX = "general_text_color_index";
+    public static final String KEY_CUSTOM_BUTTON_TEXT_COLOR = "custom_button_text_color";
+    public static final String KEY_CUSTOM_GENERAL_TEXT_COLOR = "custom_general_text_color";
 
     private static final int SELECT_IMAGE_REQUEST = 1001;
 
+    // --- UI Elements ---
     private SharedPreferences sharedPrefs;
-    private Spinner spinnerOverwriteMode, spinnerActionBarColor, spinnerButtonColor, spinnerTextColor;
-    private Switch switchDeleteMirror, switchContentFilter;
+    private Spinner spinnerOverwriteMode, spinnerActionBarColor, spinnerButtonColor;
+    private Spinner spinnerButtonTextColor, spinnerGeneralTextColor;
+    private Switch switchContentFilter;
     private EditText etFilterKeywords;
     private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground;
     private SeekBar seekBarCardAlpha;
     private View settingsScrollView;
     private CardView cardViewFileOptions, cardViewFilterOptions, cardViewPersonalization;
+    private TextView tvFileOptionsTitle, tvFilterOptionsTitle, tvPersonalizationTitle;
+    private TextView tvLabelActionBar, tvLabelButton, tvLabelCardAlpha;
+    private TextView tvLabelButtonTextColor, tvLabelGeneralTextColor;
 
+    // --- Data ---
     private String[] themeColorValues;
     private String[] textColorValues;
+    private boolean isSpinnerInitialising = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,35 +85,56 @@ public class SettingsActivity extends AppCompatActivity {
         themeColorValues = getResources().getStringArray(R.array.theme_color_values);
         textColorValues = getResources().getStringArray(R.array.text_color_values);
 
-        // Init Views
+        initViews();
+        setupActionBar();
+        setupOverwriteModeSpinner();
+        setupContentFilter();
+        setupAboutButton();
+        setupBackgroundImageButtons();
+        setupAlphaSeekBar();
+        setupColorSpinners();
+
+        updateAllUI();
+        isSpinnerInitialising = false;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        isSpinnerInitialising = true;
+        // Re-set spinner selections without triggering listener
+        spinnerActionBarColor.setSelection(sharedPrefs.getInt(KEY_ACTIONBAR_COLOR_INDEX, 7), false);
+        spinnerButtonColor.setSelection(sharedPrefs.getInt(KEY_BUTTON_COLOR_INDEX, 7), false);
+        spinnerButtonTextColor.setSelection(sharedPrefs.getInt(KEY_BUTTON_TEXT_COLOR_INDEX, 2), false);
+        spinnerGeneralTextColor.setSelection(sharedPrefs.getInt(KEY_GENERAL_TEXT_COLOR_INDEX, 0), false);
+        updateAllUI();
+        isSpinnerInitialising = false;
+    }
+
+    private void initViews() {
         settingsScrollView = findViewById(R.id.settings_scroll_view);
         cardViewFileOptions = findViewById(R.id.card_view_file_options);
         cardViewFilterOptions = findViewById(R.id.card_view_filter_options);
         cardViewPersonalization = findViewById(R.id.card_view_personalization);
         spinnerOverwriteMode = findViewById(R.id.spinnerOverwriteMode);
-        switchDeleteMirror = findViewById(R.id.switchDeleteMirror);
         switchContentFilter = findViewById(R.id.switchContentFilter);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
         btnAbout = findViewById(R.id.btnAbout);
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
-        spinnerTextColor = findViewById(R.id.spinnerTextColor);
         btnSelectBackgroundImage = findViewById(R.id.btnSelectBackgroundImage);
         btnRestoreBackground = findViewById(R.id.btnRestoreBackground);
         seekBarCardAlpha = findViewById(R.id.seekBarCardAlpha);
-
-        // Setup UI
-        setupActionBar();
-        setupOverwriteModeSpinner();
-        setupDeleteMirrorSwitch();
-        setupContentFilter();
-        setupAboutButton();
-        setupColorSpinners();
-        setupBackgroundImageButtons();
-        setupAlphaSeekBar();
-
-        // Apply initial settings
-        applyColors();
+        tvFileOptionsTitle = findViewById(R.id.tv_file_options_title);
+        tvFilterOptionsTitle = findViewById(R.id.tv_filter_options_title);
+        tvPersonalizationTitle = findViewById(R.id.tv_personalization_title);
+        tvLabelActionBar = findViewById(R.id.tv_label_actionbar_color);
+        tvLabelButton = findViewById(R.id.tv_label_button_color);
+        tvLabelCardAlpha = findViewById(R.id.tv_label_card_alpha);
+        spinnerButtonTextColor = findViewById(R.id.spinnerButtonTextColor);
+        spinnerGeneralTextColor = findViewById(R.id.spinnerGeneralTextColor);
+        tvLabelButtonTextColor = findViewById(R.id.tv_label_button_text_color);
+        tvLabelGeneralTextColor = findViewById(R.id.tv_label_general_text_color);
     }
 
     private void setupBackgroundImageButtons() {
@@ -113,24 +144,18 @@ public class SettingsActivity extends AppCompatActivity {
             intent.setType("image/*");
             startActivityForResult(intent, SELECT_IMAGE_REQUEST);
         });
-
         btnRestoreBackground.setOnClickListener(v -> {
             sharedPrefs.edit().remove(KEY_BACKGROUND_IMAGE_URI).apply();
-            applyBackgroundImage();
+            updateAllUI();
         });
     }
 
     private void setupAlphaSeekBar() {
-        int currentAlpha = sharedPrefs.getInt(KEY_CARD_ALPHA, 255);
-        seekBarCardAlpha.setProgress(currentAlpha);
-        applyCardAlpha(currentAlpha);
-
+        seekBarCardAlpha.setProgress(sharedPrefs.getInt(KEY_CARD_ALPHA, 255));
         seekBarCardAlpha.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    applyCardAlpha(progress);
-                }
+                if (fromUser) updateCardAlpha(progress);
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
@@ -139,11 +164,21 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    private void applyCardAlpha(int alpha) {
+    private void updateCardAlpha(int alpha) {
         int color = Color.argb(alpha, 255, 255, 255);
-        cardViewFileOptions.setCardBackgroundColor(color);
-        cardViewFilterOptions.setCardBackgroundColor(color);
-        cardViewPersonalization.setCardBackgroundColor(color);
+        float elevation = (alpha == 255) ? getResources().getDisplayMetrics().density * 2 : 0f;
+        if (cardViewFileOptions != null) {
+            cardViewFileOptions.setCardBackgroundColor(color);
+            cardViewFileOptions.setCardElevation(elevation);
+        }
+        if (cardViewFilterOptions != null) {
+            cardViewFilterOptions.setCardBackgroundColor(color);
+            cardViewFilterOptions.setCardElevation(elevation);
+        }
+        if (cardViewPersonalization != null) {
+            cardViewPersonalization.setCardBackgroundColor(color);
+            cardViewPersonalization.setCardElevation(elevation);
+        }
     }
 
     @Override
@@ -152,27 +187,15 @@ public class SettingsActivity extends AppCompatActivity {
         if (requestCode == SELECT_IMAGE_REQUEST && resultCode == Activity.RESULT_OK) {
             if (data != null && data.getData() != null) {
                 Uri imageUri = data.getData();
-                final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
-                getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
-                sharedPrefs.edit().putString(KEY_BACKGROUND_IMAGE_URI, imageUri.toString()).apply();
-                applyBackgroundImage();
+                try {
+                    final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                    getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
+                    sharedPrefs.edit().putString(KEY_BACKGROUND_IMAGE_URI, imageUri.toString()).apply();
+                    updateAllUI();
+                } catch (SecurityException e) {
+                    Toast.makeText(this, "无法获取图片权限", Toast.LENGTH_SHORT).show();
+                }
             }
-        }
-    }
-
-    private void applyBackgroundImage() {
-        String uriString = sharedPrefs.getString(KEY_BACKGROUND_IMAGE_URI, null);
-        if (uriString != null) {
-            try {
-                Uri imageUri = Uri.parse(uriString);
-                Drawable background = Drawable.createFromStream(getContentResolver().openInputStream(imageUri), imageUri.toString());
-                settingsScrollView.setBackground(background);
-            } catch (Exception e) {
-                settingsScrollView.setBackgroundColor(Color.WHITE);
-                Toast.makeText(this, "加载背景图片失败", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            settingsScrollView.setBackgroundColor(Color.WHITE);
         }
     }
 
@@ -185,7 +208,7 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private int getThemeColorFromIndex(int index, String customKey) {
-        if (index == themeColorValues.length - 1) {
+        if (index == themeColorValues.length) {
             String customColor = sharedPrefs.getString(customKey, "#FF000000");
             try { return Color.parseColor(customColor); } catch (Exception e) { return Color.BLACK; }
         } else if (index >= 0 && index < themeColorValues.length) {
@@ -194,41 +217,51 @@ public class SettingsActivity extends AppCompatActivity {
         return Color.BLACK;
     }
 
-    private int getTextColorFromIndex(int index) {
-        if (index == textColorValues.length - 1) {
-            String customColor = sharedPrefs.getString(KEY_CUSTOM_TEXT_COLOR, "#FFFFFFFF");
-            try { return Color.parseColor(customColor); } catch (Exception e) { return Color.WHITE; }
+    private int getTextColorFromIndex(int index, String customColorKey, String defaultColor) {
+        if (index == textColorValues.length) {
+            String customColor = sharedPrefs.getString(customColorKey, defaultColor);
+            try { return Color.parseColor(customColor); } catch (Exception e) { return Color.parseColor(defaultColor); }
         } else if (index >= 0 && index < textColorValues.length) {
-            try { return Color.parseColor(textColorValues[index]); } catch (Exception e) { return Color.WHITE; }
+            try { return Color.parseColor(textColorValues[index]); } catch (Exception e) { return Color.parseColor(defaultColor); }
         }
-        return Color.WHITE;
+        return Color.parseColor(defaultColor);
     }
 
     private void setupColorSpinners() {
         ArrayAdapter<CharSequence> themeColorAdapter = ArrayAdapter.createFromResource(this, R.array.theme_color_names, android.R.layout.simple_spinner_item);
         themeColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
         ArrayAdapter<CharSequence> textColorAdapter = ArrayAdapter.createFromResource(this, R.array.text_color_names, android.R.layout.simple_spinner_item);
         textColorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 
-        setupSpinner(spinnerActionBarColor, themeColorAdapter, KEY_ACTIONBAR_COLOR_INDEX, 7, (pos, fromUser) -> {
-            if (fromUser && pos == themeColorValues.length - 1) showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos); else applyActionBarColor(pos);
+        setupSpinner(spinnerActionBarColor, themeColorAdapter, KEY_ACTIONBAR_COLOR_INDEX, 7, (pos) -> {
+            if (pos == themeColorValues.length) showColorPickerDialog(KEY_CUSTOM_ACTIONBAR_COLOR, KEY_ACTIONBAR_COLOR_INDEX, pos);
+            else updateAllUI();
         });
-        setupSpinner(spinnerButtonColor, themeColorAdapter, KEY_BUTTON_COLOR_INDEX, 7, (pos, fromUser) -> {
-            if (fromUser && pos == themeColorValues.length - 1) showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos); else applyButtonColor(pos);
+        setupSpinner(spinnerButtonColor, themeColorAdapter, KEY_BUTTON_COLOR_INDEX, 7, (pos) -> {
+            if (pos == themeColorValues.length) showColorPickerDialog(KEY_CUSTOM_BUTTON_COLOR, KEY_BUTTON_COLOR_INDEX, pos);
+            else updateAllUI();
         });
-        setupSpinner(spinnerTextColor, textColorAdapter, KEY_TEXT_COLOR_INDEX, 2, (pos, fromUser) -> {
-            if (fromUser && pos == textColorValues.length - 1) showColorPickerDialog(KEY_CUSTOM_TEXT_COLOR, KEY_TEXT_COLOR_INDEX, pos); else applyTextColor(pos);
+        setupSpinner(spinnerButtonTextColor, textColorAdapter, KEY_BUTTON_TEXT_COLOR_INDEX, 2, (pos) -> {
+            if (pos == textColorValues.length) showColorPickerDialog(KEY_CUSTOM_BUTTON_TEXT_COLOR, KEY_BUTTON_TEXT_COLOR_INDEX, pos);
+            else updateAllUI();
+        });
+        setupSpinner(spinnerGeneralTextColor, textColorAdapter, KEY_GENERAL_TEXT_COLOR_INDEX, 0, (pos) -> {
+            if (pos == textColorValues.length) showColorPickerDialog(KEY_CUSTOM_GENERAL_TEXT_COLOR, KEY_GENERAL_TEXT_COLOR_INDEX, pos);
+            else updateAllUI();
         });
     }
-    private interface OnColorSelected { void onSelect(int position, boolean fromUser); }
+
+    private interface OnColorSelected { void onSelect(int position); }
+
     private void setupSpinner(Spinner spinner, ArrayAdapter adapter, String key, int def, OnColorSelected listener) {
         spinner.setAdapter(adapter);
-        spinner.setSelection(sharedPrefs.getInt(key, def));
+        spinner.setSelection(sharedPrefs.getInt(key, def), false);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                 listener.onSelect(position, parent.isPressed());
+                if (isSpinnerInitialising) return;
+                sharedPrefs.edit().putInt(key, position).apply();
+                listener.onSelect(position);
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
@@ -236,79 +269,105 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void showColorPickerDialog(String prefKey, String indexKey, int spinnerPosition) {
         final EditText input = new EditText(this);
-        input.setHint("#RRGGBB");
+        input.setHint("#AARRGGBB");
         input.setText(sharedPrefs.getString(prefKey, ""));
-
         AlertDialog dialog = new AlertDialog.Builder(this)
-            .setTitle("输入颜色 (例如 #FF0000)")
-            .setView(input)
-            .setPositiveButton("确定", (d, which) -> {
-                String colorStr = input.getText().toString().trim();
-                try {
-                    Color.parseColor(colorStr);
-                    sharedPrefs.edit().putString(prefKey, colorStr).apply();
-                    sharedPrefs.edit().putInt(indexKey, spinnerPosition).apply();
-                    if (prefKey.equals(KEY_CUSTOM_ACTIONBAR_COLOR)) applyActionBarColor(spinnerPosition);
-                    else if (prefKey.equals(KEY_CUSTOM_BUTTON_COLOR)) applyButtonColor(spinnerPosition);
-                    else if (prefKey.equals(KEY_CUSTOM_TEXT_COLOR)) applyTextColor(spinnerPosition);
-                } catch (Exception e) {
-                    Toast.makeText(this, "颜色格式错误", Toast.LENGTH_SHORT).show();
-                    resetSpinnerSelection(indexKey);
-                }
-            })
-            .setNegativeButton("取消", (d, which) -> resetSpinnerSelection(indexKey))
-            .create();
-        
+                .setTitle("输入颜色 (例如 #FF0000)")
+                .setView(input)
+                .setPositiveButton("确定", (d, which) -> {
+                    String colorStr = input.getText().toString().trim();
+                    try {
+                        Color.parseColor(colorStr);
+                        sharedPrefs.edit().putString(prefKey, colorStr).putInt(indexKey, spinnerPosition).apply();
+                        updateAllUI();
+                    } catch (Exception e) {
+                        Toast.makeText(this, "颜色格式错误", Toast.LENGTH_SHORT).show();
+                        resetSpinnerSelection(indexKey);
+                    }
+                })
+                .setNegativeButton("取消", (d, which) -> resetSpinnerSelection(indexKey))
+                .setOnCancelListener(d -> resetSpinnerSelection(indexKey))
+                .create();
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLACK);
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.BLACK);
     }
-    
+
     private void resetSpinnerSelection(String key) {
-        int defaultIndex = 7; // Black
-        if (key.equals(KEY_TEXT_COLOR_INDEX)) defaultIndex = 2; // White
-        
-        sharedPrefs.edit().remove(key).apply();
-        applyColors();
+        int defaultSelection = 7;
+        if (key.equals(KEY_BUTTON_TEXT_COLOR_INDEX)) defaultSelection = 2;
+        if (key.equals(KEY_GENERAL_TEXT_COLOR_INDEX)) defaultSelection = 0;
+        sharedPrefs.edit().putInt(key, defaultSelection).apply();
+        updateAllUI();
     }
 
-    private void applyColors() {
-        applyActionBarColor(sharedPrefs.getInt(KEY_ACTIONBAR_COLOR_INDEX, 7));
-        applyButtonColor(sharedPrefs.getInt(KEY_BUTTON_COLOR_INDEX, 7));
-        applyTextColor(sharedPrefs.getInt(KEY_TEXT_COLOR_INDEX, 2));
-        applyBackgroundImage();
-        applyCardAlpha(sharedPrefs.getInt(KEY_CARD_ALPHA, 255));
-    }
+    private void updateAllUI() {
+        int actionBarColor = getThemeColorFromIndex(sharedPrefs.getInt(KEY_ACTIONBAR_COLOR_INDEX, 7), KEY_CUSTOM_ACTIONBAR_COLOR);
+        int buttonColor = getThemeColorFromIndex(sharedPrefs.getInt(KEY_BUTTON_COLOR_INDEX, 7), KEY_CUSTOM_BUTTON_COLOR);
+        int buttonTextColor = getTextColorFromIndex(sharedPrefs.getInt(KEY_BUTTON_TEXT_COLOR_INDEX, 2), KEY_CUSTOM_BUTTON_TEXT_COLOR, "#FFFFFF");
+        int generalTextColor = getTextColorFromIndex(sharedPrefs.getInt(KEY_GENERAL_TEXT_COLOR_INDEX, 0), KEY_CUSTOM_GENERAL_TEXT_COLOR, "#000000");
+        int cardAlpha = sharedPrefs.getInt(KEY_CARD_ALPHA, 255);
 
-    private void applyActionBarColor(int index) {
-        int color = getThemeColorFromIndex(index, KEY_CUSTOM_ACTIONBAR_COLOR);
+        // ★★★ CORE FIX: Apply color to ActionBar background AND title ★★★
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
-            actionBar.setBackgroundDrawable(new ColorDrawable(color));
+            actionBar.setBackgroundDrawable(new ColorDrawable(actionBarColor));
+            SpannableString title = new SpannableString(actionBar.getTitle() != null ? actionBar.getTitle() : "设置");
+            // ActionBar title uses button text color as requested
+            title.setSpan(new ForegroundColorSpan(buttonTextColor), 0, title.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            actionBar.setTitle(title);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            getWindow().setStatusBarColor(color);
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(actionBarColor);
         }
+
+        // Apply Button and SeekBar Color
+        ColorStateList buttonTint = ColorStateList.valueOf(buttonColor);
+        btnAbout.setBackgroundTintList(buttonTint);
+        btnSelectBackgroundImage.setBackgroundTintList(buttonTint);
+        btnRestoreBackground.setBackgroundTintList(buttonTint);
+        if (seekBarCardAlpha != null) {
+            seekBarCardAlpha.setThumbTintList(buttonTint);
+            seekBarCardAlpha.setProgressTintList(buttonTint);
+            seekBarCardAlpha.setProgressBackgroundTintList(ColorStateList.valueOf(Color.LTGRAY));
+        }
+
+        // Apply Text Colors
+        btnAbout.setTextColor(buttonTextColor);
+        btnSelectBackgroundImage.setTextColor(buttonTextColor);
+        btnRestoreBackground.setTextColor(buttonTextColor);
+        if(tvFileOptionsTitle != null) tvFileOptionsTitle.setTextColor(generalTextColor);
+        if(tvFilterOptionsTitle != null) tvFilterOptionsTitle.setTextColor(generalTextColor);
+        if(switchContentFilter != null) switchContentFilter.setTextColor(generalTextColor);
+        if(tvPersonalizationTitle != null) tvPersonalizationTitle.setTextColor(generalTextColor);
+        if(tvLabelActionBar != null) tvLabelActionBar.setTextColor(generalTextColor);
+        if(tvLabelButton != null) tvLabelButton.setTextColor(generalTextColor);
+        if(tvLabelButtonTextColor != null) tvLabelButtonTextColor.setTextColor(generalTextColor);
+        if(tvLabelGeneralTextColor != null) tvLabelGeneralTextColor.setTextColor(generalTextColor);
+        if(tvLabelCardAlpha != null) tvLabelCardAlpha.setTextColor(generalTextColor);
+
+        // Apply Background
+        updateBackgroundImage();
+
+        // Apply Card Alpha
+        updateCardAlpha(cardAlpha);
     }
 
-    private void applyButtonColor(int index) {
-        int color = getThemeColorFromIndex(index, KEY_CUSTOM_BUTTON_COLOR);
-        btnAbout.setBackgroundTintList(ColorStateList.valueOf(color));
-        btnSelectBackgroundImage.setBackgroundTintList(ColorStateList.valueOf(color));
-        btnRestoreBackground.setBackgroundTintList(ColorStateList.valueOf(color));
-    }
-
-    private void applyTextColor(int index) {
-        int color = getTextColorFromIndex(index);
-        btnAbout.setTextColor(color);
-        btnSelectBackgroundImage.setTextColor(color);
-        btnRestoreBackground.setTextColor(color);
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            String title = "设置";
-            SpannableString text = new SpannableString(title);
-            text.setSpan(new ForegroundColorSpan(color), 0, text.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
-            actionBar.setTitle(text);
+    private void updateBackgroundImage() {
+        String uriString = sharedPrefs.getString(KEY_BACKGROUND_IMAGE_URI, null);
+        if (uriString != null) {
+            try {
+                Uri imageUri = Uri.parse(uriString);
+                Drawable background = Drawable.createFromStream(getContentResolver().openInputStream(imageUri), uriString);
+                settingsScrollView.setBackground(background);
+            } catch (Exception e) {
+                Toast.makeText(this, "加载背景图片失败", Toast.LENGTH_SHORT).show();
+                settingsScrollView.setBackgroundColor(Color.WHITE);
+            }
+        } else {
+            settingsScrollView.setBackgroundColor(Color.WHITE);
         }
     }
 
@@ -326,46 +385,50 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    private void setupDeleteMirrorSwitch() {
-        switchDeleteMirror.setChecked(sharedPrefs.getBoolean(KEY_DELETE_MIRROR, false));
-        switchDeleteMirror.setOnCheckedChangeListener((v, isChecked) -> sharedPrefs.edit().putBoolean(KEY_DELETE_MIRROR, isChecked).apply());
-    }
-
     private void setupContentFilter() {
-        switchContentFilter.setChecked(sharedPrefs.getBoolean(KEY_CONTENT_FILTER_ENABLED, false));
+        boolean isFilterEnabled = sharedPrefs.getBoolean(KEY_CONTENT_FILTER_ENABLED, false);
+        switchContentFilter.setChecked(isFilterEnabled);
         etFilterKeywords.setText(sharedPrefs.getString(KEY_FILTER_KEYWORDS, ""));
-        etFilterKeywords.setEnabled(switchContentFilter.isChecked());
-        
-        switchContentFilter.setOnCheckedChangeListener((v, isChecked) -> {
+        etFilterKeywords.setEnabled(isFilterEnabled);
+        switchContentFilter.setOnCheckedChangeListener((buttonView, isChecked) -> {
             sharedPrefs.edit().putBoolean(KEY_CONTENT_FILTER_ENABLED, isChecked).apply();
             etFilterKeywords.setEnabled(isChecked);
         });
-        
         etFilterKeywords.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
                 sharedPrefs.edit().putString(KEY_FILTER_KEYWORDS, s.toString()).apply();
             }
-            @Override public void afterTextChanged(Editable s) {}
         });
     }
 
     private void setupAboutButton() {
         btnAbout.setOnClickListener(v -> {
-             new AlertDialog.Builder(this)
-                .setTitle("关于")
-                .setMessage("你好")
-                .setPositiveButton("确定", null)
-                .show();
+            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2025 MUW Group Studio\nデモクラシーは勝利を収めて帰還する！";
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("关于")
+                    .setMessage(message)
+                    .setPositiveButton("确定", null)
+                    .create();
+            dialog.show();
+            TextView messageView = dialog.findViewById(android.R.id.message);
+            if (messageView != null) {
+                Linkify.addLinks(messageView, Linkify.WEB_URLS);
+                messageView.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
+                messageView.setLinkTextColor(Color.BLUE);
+                messageView.setTextIsSelectable(true);
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.BLACK);
         });
     }
-    
-    @Override 
-    public boolean onOptionsItemSelected(MenuItem item) { 
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
-            finish(); 
+            finish();
             return true;
         }
-        return super.onOptionsItemSelected(item); 
+        return super.onOptionsItemSelected(item);
     }
 }

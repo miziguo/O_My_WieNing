@@ -28,6 +28,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -43,7 +44,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -60,12 +60,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "AppPrefs";
 
     // --- UI Elements ---
-    private TextView tvEasterEgg, tvServiceStatus;
+    private TextView tvEasterEgg, tvServiceStatus, versionView, tvPermissionTitle;
+    private TextView tvAboutTitle1, tvAboutTitle2, tvAboutCopyright;
     private Button btnStart, btnStop, btnBatteryOptimization, btnStoragePermission;
     private CardView cardViewWarning, cardViewStatus, cardViewControls, cvPermissions, cardViewVersion, cardViewAbout;
     private View mainRootLayout;
     private RecyclerView recyclerView;
-    private FloatingActionButton fabAddGroup;
+    private ImageButton fabAddGroup;
 
     // --- Data & Adapters ---
     private MonitorGroupAdapter adapter;
@@ -82,20 +83,17 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // --- 初始化 ---
         initSharedPreferences();
         initViews();
-        applyThemeColors(); // 应用主题必须在 initViews 之后
+        applyThemeColors();
         initRecyclerView();
         initListeners();
 
-        // --- 加载数据和状态 ---
         requestNotificationPermission();
         loadMonitorGroups();
         checkDateEasterEgg();
         setupBroadcastReceiver();
 
-        // 显示欢迎弹窗
         showWelcomeDialog();
     }
 
@@ -105,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
         applyThemeColors();
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, new IntentFilter(MonitorService.ACTION_SERVICE_STATUS));
         checkPermissionsAndStability();
-        updateServiceStatusUI(MonitorService.isRunning(), "未设置参数"); // 每次返回界面时更新UI
+        updateServiceStatusUI(MonitorService.isRunning(), "准备就绪");
     }
 
     @Override
@@ -113,8 +111,6 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         LocalBroadcastManager.getInstance(this).unregisterReceiver(statusReceiver);
     }
-
-    // --- 初始化方法 ---
 
     private void initSharedPreferences() {
         monitorSettings = getSharedPreferences(SettingsActivity.PREF_NAME, Context.MODE_PRIVATE);
@@ -126,7 +122,6 @@ public class MainActivity extends AppCompatActivity {
         mainRootLayout = findViewById(R.id.main_root_layout);
         cardViewWarning = findViewById(R.id.card_view_warning);
         cardViewStatus = findViewById(R.id.card_view_status);
-        // cardViewPaths 不再需要单独控制，由 RecyclerView 管理
         cardViewControls = findViewById(R.id.card_view_controls);
         cvPermissions = findViewById(R.id.cvPermissions);
         cardViewVersion = findViewById(R.id.card_view_version);
@@ -138,28 +133,38 @@ public class MainActivity extends AppCompatActivity {
         btnStop = findViewById(R.id.btnStop);
         btnBatteryOptimization = findViewById(R.id.btnBatteryOptimization);
         btnStoragePermission = findViewById(R.id.btnOverlayPermission);
-        fabAddGroup = findViewById(R.id.fab_add_group); // FAB for adding new group
-        recyclerView = findViewById(R.id.rv_monitor_groups); // RecyclerView
+        fabAddGroup = findViewById(R.id.fab_add_group);
+        recyclerView = findViewById(R.id.rv_monitor_groups);
 
-        TextView versionView = findViewById(R.id.version);
+        tvPermissionTitle = findViewById(R.id.tv_permission_title);
+        versionView = findViewById(R.id.version);
+        tvAboutTitle1 = findViewById(R.id.tv_about_title1);
+        tvAboutTitle2 = findViewById(R.id.tv_about_title2);
+        tvAboutCopyright = findViewById(R.id.tv_about_copyright);
+
         if (versionView != null) {
-            versionView.setText("当前版本: " + BuildConfig.VERSION_NAME + "\n此版本为内部测试版本，正在开发中");
+            try {
+                String fullVersionName = BuildConfig.VERSION_NAME;
+                String formattedVersionName = fullVersionName.replace("|", "\n");
+                versionView.setText("当前版本: " + formattedVersionName);
+            } catch (Exception e) {
+                versionView.setText("当前版本: 未知");
+            }
         }
     }
 
     private void initRecyclerView() {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new MonitorGroupAdapter(monitorGroups, position -> {
-            // 删除按钮的点击事件
             new AlertDialog.Builder(this)
                     .setTitle("确认删除")
                     .setMessage("您确定要删除这个监控组吗？")
                     .setPositiveButton("删除", (dialog, which) -> {
                         monitorGroups.remove(position);
                         adapter.notifyItemRemoved(position);
-                        adapter.notifyItemRangeChanged(position, monitorGroups.size()); // 更新后续项的位置
-                        saveMonitorGroups(); // 保存更改
-                        checkButtons(); // 检查开始按钮状态
+                        adapter.notifyItemRangeChanged(position, monitorGroups.size());
+                        saveMonitorGroups();
+                        checkButtons();
                     })
                     .setNegativeButton("取消", null)
                     .show();
@@ -179,24 +184,31 @@ public class MainActivity extends AppCompatActivity {
         statusReceiver = new ServiceStatusReceiver();
     }
 
-    // --- 主题和UI应用 ---
-
     private void applyThemeColors() {
         int actionBarIndex = monitorSettings.getInt(SettingsActivity.KEY_ACTIONBAR_COLOR_INDEX, 7);
         int buttonIndex = monitorSettings.getInt(SettingsActivity.KEY_BUTTON_COLOR_INDEX, 7);
-        int textColorIndex = monitorSettings.getInt(SettingsActivity.KEY_TEXT_COLOR_INDEX, 2);
         int cardAlpha = monitorSettings.getInt(SettingsActivity.KEY_CARD_ALPHA, 255);
+
+        int buttonTextColor = getTextColorFromIndex(
+                monitorSettings.getInt(SettingsActivity.KEY_BUTTON_TEXT_COLOR_INDEX, 2), // Default white
+                SettingsActivity.KEY_CUSTOM_BUTTON_TEXT_COLOR,
+                "#FFFFFF"
+        );
+        int generalTextColor = getTextColorFromIndex(
+                monitorSettings.getInt(SettingsActivity.KEY_GENERAL_TEXT_COLOR_INDEX, 0), // Default black
+                SettingsActivity.KEY_CUSTOM_GENERAL_TEXT_COLOR,
+                "#000000"
+        );
 
         int actionBarColor = getThemeColorFromIndex(actionBarIndex, SettingsActivity.KEY_CUSTOM_ACTIONBAR_COLOR);
         int buttonColor = getThemeColorFromIndex(buttonIndex, SettingsActivity.KEY_CUSTOM_BUTTON_COLOR);
-        int textColor = getTextColorFromIndex(textColorIndex);
 
         // ActionBar & Status Bar
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {
             actionBar.setBackgroundDrawable(new ColorDrawable(actionBarColor));
             SpannableString text = new SpannableString(actionBar.getTitle() != null ? actionBar.getTitle() : getString(R.string.app_name));
-            text.setSpan(new ForegroundColorSpan(textColor), 0, text.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+            text.setSpan(new ForegroundColorSpan(buttonTextColor), 0, text.length(), Spannable.SPAN_INCLUSIVE_INCLUSIVE);
             actionBar.setTitle(text);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -207,19 +219,29 @@ public class MainActivity extends AppCompatActivity {
 
         // Buttons and FAB
         ColorStateList colorStateList = ColorStateList.valueOf(buttonColor);
-        applyButtonColor(btnStart, colorStateList, textColor);
-        applyButtonColor(btnStop, colorStateList, textColor);
-        if(fabAddGroup != null) fabAddGroup.setBackgroundTintList(colorStateList);
-        // ... (对其他按钮应用)
+        applyButtonColor(btnStart, colorStateList, buttonTextColor);
+        applyButtonColor(btnStop, colorStateList, buttonTextColor);
+        if (fabAddGroup != null) {
+            Drawable background = fabAddGroup.getBackground().mutate();
+            background.setTintList(colorStateList);
+            fabAddGroup.setBackground(background);
+        }
+
+        // Set color for all non-button TextViews
+        if (tvServiceStatus != null) tvServiceStatus.setTextColor(generalTextColor);
+        if (versionView != null) versionView.setTextColor(generalTextColor);
+        if (tvPermissionTitle != null) tvPermissionTitle.setTextColor(generalTextColor);
+        if (tvAboutTitle1 != null) tvAboutTitle1.setTextColor(generalTextColor);
+        if (tvAboutTitle2 != null) tvAboutTitle2.setTextColor(generalTextColor);
+        if (tvAboutCopyright != null) tvAboutCopyright.setTextColor(generalTextColor);
 
         // Background & Card Alpha
         applyBackgroundImage();
         applyCardAlpha(cardAlpha);
     }
 
-    // ... (其他 applyXXX, getXXXColorFromIndex 方法保持不变) ...
     private int getThemeColorFromIndex(int index, String customKey) {
-        if (index == colorValues.length - 1) {
+        if (index == colorValues.length) {
             String customColor = monitorSettings.getString(customKey, "#FF000000");
             try { return Color.parseColor(customColor); } catch (Exception e) { return Color.BLACK; }
         } else if (index >= 0 && index < colorValues.length) {
@@ -227,15 +249,17 @@ public class MainActivity extends AppCompatActivity {
         }
         return Color.BLACK;
     }
-    private int getTextColorFromIndex(int index) {
-        if (index == textColorValues.length - 1) {
-            String customColor = monitorSettings.getString(SettingsActivity.KEY_CUSTOM_TEXT_COLOR, "#FFFFFFFF");
-            try { return Color.parseColor(customColor); } catch (Exception e) { return Color.WHITE; }
+
+    private int getTextColorFromIndex(int index, String customColorKey, String defaultColor) {
+        if (index == textColorValues.length) {
+            String customColor = monitorSettings.getString(customColorKey, defaultColor);
+            try { return Color.parseColor(customColor); } catch (Exception e) { return Color.parseColor(defaultColor); }
         } else if (index >= 0 && index < textColorValues.length) {
-            try { return Color.parseColor(textColorValues[index]); } catch (Exception e) { return Color.WHITE; }
+            try { return Color.parseColor(textColorValues[index]); } catch (Exception e) { return Color.parseColor(defaultColor); }
         }
-        return Color.WHITE;
+        return Color.parseColor(defaultColor);
     }
+
     private void applyBackgroundImage() {
         String uriString = monitorSettings.getString(SettingsActivity.KEY_BACKGROUND_IMAGE_URI, null);
         if (uriString != null) {
@@ -250,15 +274,30 @@ public class MainActivity extends AppCompatActivity {
             mainRootLayout.setBackgroundColor(Color.WHITE);
         }
     }
+
     private void applyCardAlpha(int alpha) {
         int color = Color.argb(alpha, 255, 255, 255);
-        if(cardViewWarning != null) cardViewWarning.setCardBackgroundColor(color);
-        if(cardViewStatus != null) cardViewStatus.setCardBackgroundColor(color);
-        if(cardViewControls != null) cardViewControls.setCardBackgroundColor(color);
-        if(cvPermissions != null) cvPermissions.setCardBackgroundColor(color);
-        if(cardViewVersion != null) cardViewVersion.setCardBackgroundColor(color);
-        if(cardViewAbout != null) cardViewAbout.setCardBackgroundColor(color);
+        float elevation = (alpha == 255) ? getResources().getDisplayMetrics().density * 4 : 0f;
+
+        setCardStyle(cardViewWarning, color, elevation);
+        setCardStyle(cardViewStatus, color, elevation);
+        setCardStyle(cardViewControls, color, elevation);
+        setCardStyle(cvPermissions, color, elevation);
+        setCardStyle(cardViewVersion, color, elevation);
+        setCardStyle(cardViewAbout, color, elevation);
+
+        if (adapter != null) {
+            adapter.setCardAlpha(alpha);
+        }
     }
+
+    private void setCardStyle(CardView cardView, int color, float elevation) {
+        if (cardView != null) {
+            cardView.setCardBackgroundColor(color);
+            cardView.setCardElevation(elevation);
+        }
+    }
+
     private void applyButtonColor(Button btn, ColorStateList backgroundTint, int textColor) {
         if (btn != null) {
             btn.setBackgroundTintList(backgroundTint);
@@ -266,11 +305,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // --- 核心逻辑：多组路径管理 ---
-
     private void showAddGroupDialog() {
         LayoutInflater inflater = LayoutInflater.from(this);
-        View dialogView = inflater.inflate(R.layout.dialog_add_group, null); // 需要创建一个 dialog_add_group.xml 布局
+        View dialogView = inflater.inflate(R.layout.dialog_add_group, null);
 
         final EditText etSource = dialogView.findViewById(R.id.et_dialog_source);
         final EditText etTarget = dialogView.findViewById(R.id.et_dialog_target);
@@ -303,8 +340,7 @@ public class MainActivity extends AppCompatActivity {
         String json = prefs.getString("monitor_groups_json", null);
         if (json != null) {
             Gson gson = new Gson();
-            // ★★★ 使用正确的 Gson TypeToken ★★★
-            Type type = new com.google.gson.reflect.TypeToken<ArrayList<MonitorGroup>>() {}.getType();
+            Type type = new TypeToken<ArrayList<MonitorGroup>>() {}.getType();
             List<MonitorGroup> loadedGroups = gson.fromJson(json, type);
             if (loadedGroups != null) {
                 monitorGroups.clear();
@@ -315,7 +351,6 @@ public class MainActivity extends AppCompatActivity {
         checkButtons();
     }
 
-
     private void saveMonitorGroups() {
         SharedPreferences.Editor editor = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
         Gson gson = new Gson();
@@ -323,8 +358,6 @@ public class MainActivity extends AppCompatActivity {
         editor.putString("monitor_groups_json", json);
         editor.apply();
     }
-
-    // --- 服务控制 ---
 
     private void startServiceFunc() {
         if (monitorGroups.isEmpty()) {
@@ -341,7 +374,6 @@ public class MainActivity extends AppCompatActivity {
 
         Intent intent = new Intent(this, MonitorService.class);
         intent.setAction(MonitorService.ACTION_START);
-        // 传递整个列表给服务
         intent.putExtra("MONITOR_GROUPS", (Serializable) monitorGroups);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -371,20 +403,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkButtons() {
-        boolean isServiceRunning = MonitorService.isRunning(); // 这个方法可能不准，最好依赖广播
+        boolean isServiceRunning = MonitorService.isRunning();
         btnStart.setEnabled(!isServiceRunning && !monitorGroups.isEmpty());
         btnStop.setEnabled(isServiceRunning);
     }
 
-    // --- 权限/彩蛋/欢迎弹窗/广播 等辅助方法 (大部分保持不变) ---
-    // ... (checkPermissionsAndStability, request..., checkDateEasterEgg, showWelcomeDialog, ServiceStatusReceiver 等方法)
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void checkDateEasterEgg() {
         Calendar c = Calendar.getInstance();
         boolean isJune4th = (c.get(Calendar.MONTH) == Calendar.JUNE) && (c.get(Calendar.DAY_OF_MONTH) == 4);
         if (tvEasterEgg != null) {
             tvEasterEgg.setVisibility(isJune4th ? View.VISIBLE : View.GONE);
+            if (isJune4th) tvEasterEgg.setText("铭记历史，勿忘六四");
         }
     }
+
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -392,9 +439,57 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void showWelcomeDialog() {
-        // ... (保持您原来的10秒倒计时逻辑)
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean isFirstRun = prefs.getBoolean("isFirstRun", true);
+
+        if (!isFirstRun) {
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("使用条款")
+                .setMessage("男娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n\n©2025 MUW Group Studio")
+                .setCancelable(false)
+                .setNegativeButton("我同意 (10s)", null)
+                .setPositiveButton("滚！", (dialog, which) -> finish());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        Button btnAgree = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        Button btnDisagree = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+
+        if (btnDisagree != null) btnDisagree.setTextColor(Color.RED);
+        if (btnAgree != null) {
+            btnAgree.setTextColor(Color.GRAY);
+            btnAgree.setEnabled(false);
+        }
+
+        new android.os.CountDownTimer(10000, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (btnAgree != null) {
+                    btnAgree.setText("我同意 (" + (millisUntilFinished / 1000 + 1) + "s)");
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (btnAgree != null) {
+                    btnAgree.setText("我同意");
+                    btnAgree.setEnabled(true);
+                    btnAgree.setTextColor(Color.parseColor("#009900"));
+                    btnAgree.setOnClickListener(v -> {
+                        prefs.edit().putBoolean("isFirstRun", false).apply();
+                        dialog.dismiss();
+                    });
+                }
+            }
+        }.start();
     }
+
     private class ServiceStatusReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -405,7 +500,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    // ... (其他所有 request, checkPermission, onActivityResult 等方法都保持原样)
+
     private boolean isManageExternalStorageGranted() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             return Environment.isExternalStorageManager();
@@ -413,13 +508,16 @@ public class MainActivity extends AppCompatActivity {
             return ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
         }
     }
+
     private boolean isOverlayPermissionGranted() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
     }
+
     private void checkPermissionsAndStability() {
         boolean manageStorageGranted = isManageExternalStorageGranted();
         boolean overlayGranted = isOverlayPermissionGranted();
         boolean batteryOptIgnored = true;
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             batteryOptIgnored = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
@@ -435,11 +533,11 @@ public class MainActivity extends AppCompatActivity {
         if (btnStoragePermission != null) {
             if (!manageStorageGranted) {
                 btnStoragePermission.setVisibility(View.VISIBLE);
-                btnStoragePermission.setText("📁 启用全部文件访问权限（核心功能）");
+                btnStoragePermission.setText("启用全部文件访问权限");
                 btnStoragePermission.setOnClickListener(v -> requestExternalStoragePermissionGuide());
             } else if (!overlayGranted) {
                 btnStoragePermission.setVisibility(View.VISIBLE);
-                btnStoragePermission.setText("🛰️ 启用悬浮窗权限（稳定后台）");
+                btnStoragePermission.setText("启用悬浮窗权限");
                 btnStoragePermission.setOnClickListener(v -> requestOverlayPermissionGuide());
             } else {
                 btnStoragePermission.setVisibility(View.GONE);
@@ -455,6 +553,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void requestExternalStoragePermissionGuide() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!isManageExternalStorageGranted()) {
@@ -472,6 +571,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void requestOverlayPermissionGuide() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isOverlayPermissionGranted()) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
@@ -482,6 +582,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private void requestIgnoreBatteryOptimizations() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
@@ -494,6 +595,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -501,6 +603,7 @@ public class MainActivity extends AppCompatActivity {
             checkPermissionsAndStability();
         }
     }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -508,11 +611,4 @@ public class MainActivity extends AppCompatActivity {
             checkPermissionsAndStability();
         }
     }
-
-    // --- 菜单和旧方法占位 ---
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) { getMenuInflater().inflate(R.menu.main_menu, menu); return true; }
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) { if (item.getItemId() == R.id.action_settings) { startActivity(new Intent(this, SettingsActivity.class)); return true; } return super.onOptionsItemSelected(item); }
-
 }

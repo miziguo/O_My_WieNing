@@ -1,44 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
     app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
+    app:cardElevation="4dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@android:color/darker_gray">
 
-    <LinearLayout
+    <!--
+        使用 RelativeLayout 可以更灵活地将元素放置在角落
+    -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- 源路径文本 -->
         <TextView
             android:id="@+id/tv_item_source_path"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="源: /path/to/source"
-            android:textStyle="bold"
+            android:layout_alignParentTop="true"
             android:ellipsize="start"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            android:textStyle="bold"
+            tools:text="源: /path/to/a/very/long/source/directory/name" />
 
+        <!-- 目标路径文本 -->
         <TextView
             android:id="@+id/tv_item_target_path"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_below="@id/tv_item_source_path"
             android:layout_marginTop="8dp"
-            android:text="目标: /path/to/target"
+            android:layout_marginBottom="32dp"
             android:ellipsize="start"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            tools:text="目标: /path/to/a/very/long/target/directory/name" />
 
+        <!-- ★ 修复点: 已修正所有语法错误，并将删除按钮正确定位到左下角 ★ -->
         <ImageButton
             android:id="@+id/btn_item_delete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:src="@android:drawable/ic_menu_delete"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentBottom="true"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:layout_gravity="end"
-            android:contentDescription="删除"/>
-    </LinearLayout>
+            android:contentDescription="删除"
+            android:src="@android:drawable/ic_menu_delete" /> <!-- 使用主题中的错误颜色，通常是红色 -->
 
-</androidx.cardview.widget.CardView>
+    </RelativeLayout>
+
+</com.google.android.material.card.MaterialCardView>

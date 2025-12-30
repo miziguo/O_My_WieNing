@@ -114,7 +114,7 @@ public class MonitorService extends Service {
                     } else {
                         Toast.makeText(this, "服务已在运行中", Toast.LENGTH_SHORT).show();
                         // 补发一个状态广播，确保UI同步
-                        sendServiceStatusBroadcast(true, "监控中...");
+                        sendServiceStatusBroadcast(true, "");
                     }
                 } else {
                     // 列表为空也是一个启动错误
@@ -138,7 +138,7 @@ public class MonitorService extends Service {
         }
 
         updateNotification("正在监控 " + groups.size() + " 个目录");
-        updateFloatingWindow("监控中...");
+        updateFloatingWindow("");
     }
 
     private void stopMonitoring() {
@@ -291,7 +291,7 @@ public class MonitorService extends Service {
         updateFloatingWindow("复制中: " + name);
         if (doCopy(srcFile, dstDir)) {
             knownFiles.put(name, lastMod);
-            mainHandler.postDelayed(() -> updateFloatingWindow("监控中..."), 1500);
+            mainHandler.postDelayed(() -> updateFloatingWindow(""), 1500);
         }
     }
 
