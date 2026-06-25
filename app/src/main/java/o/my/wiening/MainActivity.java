@@ -56,7 +56,6 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "MainActivity";
     private static final String PREFS_NAME = "AppPrefs";
 
     // --- UI Elements ---

@@ -2,11 +2,6 @@
     <string name="app_name">哦！我的南娘</string>
 
 
-    <string-array name="overwrite_options">
-        <item>直接覆盖同名文件</item>
-        <item>自动添加编号坏了，详情请见关于</item>
-    </string-array>
-
     <string-array name="theme_color_names">
         <item>民主红</item>
         <item>P站黄</item>

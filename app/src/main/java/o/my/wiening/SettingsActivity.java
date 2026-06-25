@@ -40,7 +40,6 @@ import androidx.cardview.widget.CardView;
 public class SettingsActivity extends AppCompatActivity {
 
     public static final String PREF_NAME = "MonitorSettings";
-    public static final String KEY_OVERWRITE_MODE_INDEX = "overwrite_mode_index";
     public static final String KEY_CONTENT_FILTER_ENABLED = "content_filter_enabled";
     public static final String KEY_FILTER_KEYWORDS = "filter_keywords";
 
@@ -62,15 +61,15 @@ public class SettingsActivity extends AppCompatActivity {
 
     // --- UI Elements ---
     private SharedPreferences sharedPrefs;
-    private Spinner spinnerOverwriteMode, spinnerActionBarColor, spinnerButtonColor;
+    private Spinner spinnerActionBarColor, spinnerButtonColor;
     private Spinner spinnerButtonTextColor, spinnerGeneralTextColor;
     private Switch switchContentFilter;
     private EditText etFilterKeywords;
     private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground;
     private SeekBar seekBarCardAlpha;
     private View settingsScrollView;
-    private CardView cardViewFileOptions, cardViewFilterOptions, cardViewPersonalization;
-    private TextView tvFileOptionsTitle, tvFilterOptionsTitle, tvPersonalizationTitle;
+    private CardView cardViewFilterOptions, cardViewPersonalization;
+    private TextView tvFilterOptionsTitle, tvPersonalizationTitle;
     private TextView tvLabelActionBar, tvLabelButton, tvLabelCardAlpha;
     private TextView tvLabelButtonTextColor, tvLabelGeneralTextColor;
 
@@ -92,7 +91,6 @@ public class SettingsActivity extends AppCompatActivity {
 
         initViews();
         setupActionBar();
-        setupOverwriteModeSpinner();
         setupContentFilter();
         setupAboutButton();
         setupBackgroundImageButtons();
@@ -118,10 +116,8 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void initViews() {
         settingsScrollView = findViewById(R.id.settings_scroll_view);
-        cardViewFileOptions = findViewById(R.id.card_view_file_options);
         cardViewFilterOptions = findViewById(R.id.card_view_filter_options);
         cardViewPersonalization = findViewById(R.id.card_view_personalization);
-        spinnerOverwriteMode = findViewById(R.id.spinnerOverwriteMode);
         switchContentFilter = findViewById(R.id.switchContentFilter);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
         btnAbout = findViewById(R.id.btnAbout);
@@ -130,7 +126,6 @@ public class SettingsActivity extends AppCompatActivity {
         btnSelectBackgroundImage = findViewById(R.id.btnSelectBackgroundImage);
         btnRestoreBackground = findViewById(R.id.btnRestoreBackground);
         seekBarCardAlpha = findViewById(R.id.seekBarCardAlpha);
-        tvFileOptionsTitle = findViewById(R.id.tv_file_options_title);
         tvFilterOptionsTitle = findViewById(R.id.tv_filter_options_title);
         tvPersonalizationTitle = findViewById(R.id.tv_personalization_title);
         tvLabelActionBar = findViewById(R.id.tv_label_actionbar_color);
@@ -172,10 +167,6 @@ public class SettingsActivity extends AppCompatActivity {
     private void updateCardAlpha(int alpha) {
         int color = Color.argb(alpha, 255, 255, 255);
         float elevation = (alpha == 255) ? getResources().getDisplayMetrics().density * 2 : 0f;
-        if (cardViewFileOptions != null) {
-            cardViewFileOptions.setCardBackgroundColor(color);
-            cardViewFileOptions.setCardElevation(elevation);
-        }
         if (cardViewFilterOptions != null) {
             cardViewFilterOptions.setCardBackgroundColor(color);
             cardViewFilterOptions.setCardElevation(elevation);
@@ -375,7 +366,6 @@ public class SettingsActivity extends AppCompatActivity {
         btnAbout.setTextColor(buttonTextColor);
         btnSelectBackgroundImage.setTextColor(buttonTextColor);
         btnRestoreBackground.setTextColor(buttonTextColor);
-        if(tvFileOptionsTitle != null) tvFileOptionsTitle.setTextColor(generalTextColor);
         if(tvFilterOptionsTitle != null) tvFilterOptionsTitle.setTextColor(generalTextColor);
         if(switchContentFilter != null) switchContentFilter.setTextColor(generalTextColor);
         if(tvPersonalizationTitle != null) tvPersonalizationTitle.setTextColor(generalTextColor);
@@ -406,20 +396,6 @@ public class SettingsActivity extends AppCompatActivity {
         } else {
             settingsScrollView.setBackgroundColor(Color.WHITE);
         }
-    }
-
-    private void setupOverwriteModeSpinner() {
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.overwrite_options, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerOverwriteMode.setAdapter(adapter);
-        spinnerOverwriteMode.setSelection(sharedPrefs.getInt(KEY_OVERWRITE_MODE_INDEX, 0));
-        spinnerOverwriteMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                sharedPrefs.edit().putInt(KEY_OVERWRITE_MODE_INDEX, position).apply();
-            }
-            @Override public void onNothingSelected(AdapterView<?> parent) {}
-        });
     }
 
     private void setupContentFilter() {

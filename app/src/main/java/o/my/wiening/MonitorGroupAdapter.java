@@ -53,13 +53,11 @@ public class MonitorGroupAdapter extends RecyclerView.Adapter<MonitorGroupAdapte
         });
 
         // ★ 新增：在这里为卡片设置带有透明度的背景色
-        // 使用一个浅灰色 #f0f0f0 作为底色
         int color = Color.argb(cardAlpha, 255, 255, 255);
         holder.cardView.setCardBackgroundColor(color);
         // ★★★ 修复点 2：同样应用阴影逻辑 ★★★
         float elevation = (cardAlpha == 255) ? holder.itemView.getContext().getResources().getDisplayMetrics().density * 4 : 0f;
 
-        holder.cardView.setCardBackgroundColor(color);
         holder.cardView.setCardElevation(elevation);
 
     }
