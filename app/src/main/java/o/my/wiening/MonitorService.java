@@ -312,21 +312,35 @@ public class MonitorService extends Service {
         return !hasValidKeyword;
     }
 
-    // ★★★ CORE FIX: Removed all overwrite logic, forcing overwrite every time ★★★
     private String doCopy(File srcFile, File dstDir) {
-        File targetFile = new File(dstDir, srcFile.getName());
+        String origName = srcFile.getName();
+        File targetFile = new File(dstDir, origName);
 
         if (targetFile.exists()) {
-            targetFile.delete(); // Always delete if exists
+            boolean dedup = sharedPrefs.getBoolean(SettingsActivity.KEY_DEDUP_FILENAME, false);
+            if (!dedup) {
+                targetFile.delete(); // 覆盖模式
+            } else {
+                // 自动编号: file.txt → file(1).txt → file(2).txt ...
+                int dot = origName.lastIndexOf('.');
+                String base = (dot > 0) ? origName.substring(0, dot) : origName;
+                String ext = (dot > 0) ? origName.substring(dot) : "";
+                int counter = 1;
+                do {
+                    targetFile = new File(dstDir, base + "(" + counter + ")" + ext);
+                    counter++;
+                } while (targetFile.exists());
+            }
         }
 
-        try (FileInputStream in = new FileInputStream(srcFile); FileOutputStream out = new FileOutputStream(targetFile)) {
+        try (FileInputStream in = new FileInputStream(srcFile);
+             FileOutputStream out = new FileOutputStream(targetFile)) {
             byte[] buf = new byte[8192];
             int len;
             while ((len = in.read(buf)) > 0) {
                 out.write(buf, 0, len);
             }
-            Log.i(TAG, "成功覆盖: " + srcFile.getName() + " -> " + targetFile.getName());
+            Log.i(TAG, "复制完成: " + srcFile.getName() + " -> " + targetFile.getName());
             return targetFile.getName();
         } catch (Exception e) {
             Log.e(TAG, "复制文件失败: " + srcFile.getName(), e);

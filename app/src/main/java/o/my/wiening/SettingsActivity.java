@@ -8,12 +8,14 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.text.style.ForegroundColorSpan;
 import android.text.util.Linkify;
@@ -74,6 +76,9 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_FTP_PASSWORD = "ftp_password";
     public static final String KEY_FTP_REMOTE_PATH = "ftp_remote_path";
 
+    // Dedup filename on conflict
+    public static final String KEY_DEDUP_FILENAME = "dedup_filename";
+
     private static final int SELECT_IMAGE_REQUEST = 1001;
 
     // --- UI Elements ---
@@ -82,6 +87,7 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinnerButtonTextColor, spinnerGeneralTextColor;
     private Switch switchContentFilter;
     private Switch switchFtpEnabled;
+    private Switch switchDedupFilename;
     private EditText etFilterKeywords;
     private EditText etFtpHost, etFtpPort, etFtpUsername, etFtpPassword, etFtpRemotePath;
     private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground, btnFtpTest;
@@ -111,6 +117,7 @@ public class SettingsActivity extends AppCompatActivity {
         initViews();
         setupActionBar();
         setupContentFilter();
+        setupDedupFilename();
         setupFtpSettings();
         setupFtpTestButton();
         setupAboutButton();
@@ -142,6 +149,7 @@ public class SettingsActivity extends AppCompatActivity {
         cardViewPersonalization = findViewById(R.id.card_view_personalization);
         switchContentFilter = findViewById(R.id.switchContentFilter);
         switchFtpEnabled = findViewById(R.id.switchFtpEnabled);
+        switchDedupFilename = findViewById(R.id.switchDedupFilename);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
         etFtpHost = findViewById(R.id.etFtpHost);
         etFtpPort = findViewById(R.id.etFtpPort);
@@ -331,22 +339,131 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void showColorPickerDialog(String prefKey, String indexKey, int spinnerPosition) {
-        final EditText input = new EditText(this);
-        input.setHint("#AARRGGBB");
-        input.setText(sharedPrefs.getString(prefKey, ""));
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("输入颜色 (例如 #FF0000)")
-                .setView(input)
-                .setPositiveButton("确定", (d, which) -> {
-                    String colorStr = input.getText().toString().trim();
-                    try {
-                        Color.parseColor(colorStr);
-                        sharedPrefs.edit().putString(prefKey, colorStr).putInt(indexKey, spinnerPosition).apply();
-                        updateAllUI();
-                    } catch (Exception e) {
-                        Toast.makeText(this, "颜色格式错误", Toast.LENGTH_SHORT).show();
-                        resetSpinnerSelection(indexKey);
+        // Parse existing custom color (or start with black)
+        String saved = sharedPrefs.getString(prefKey, "");
+        int initR = 0, initG = 0, initB = 0;
+        try {
+            int c = Color.parseColor(saved);
+            initR = Color.red(c);
+            initG = Color.green(c);
+            initB = Color.blue(c);
+        } catch (Exception ignored) {}
+
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding((int)(16*density), (int)(8*density), (int)(16*density), (int)(8*density));
+
+        // Color preview box
+        final View preview = new View(this);
+        preview.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int)(60*density)));
+        GradientDrawable prevBg = new GradientDrawable();
+        prevBg.setShape(GradientDrawable.RECTANGLE);
+        prevBg.setCornerRadius(8*density);
+        prevBg.setColor(Color.rgb(initR, initG, initB));
+        preview.setBackground(prevBg);
+        root.addView(preview);
+
+        // Shared RGB state (used by both TextWatcher and SeekBar listener)
+        final int[] rgb = {initR, initG, initB};
+
+        // --- R --- (declare before hexInput so TextWatcher can reference)
+        final TextView labelR = new TextView(this);
+        labelR.setText("R: " + initR);
+        labelR.setTextSize(13);
+        root.addView(labelR);
+        final SeekBar sbR = new SeekBar(this);
+        sbR.setMax(255);
+        sbR.setProgress(initR);
+        root.addView(sbR);
+
+        // --- G ---
+        final TextView labelG = new TextView(this);
+        labelG.setText("G: " + initG);
+        labelG.setTextSize(13);
+        root.addView(labelG);
+        final SeekBar sbG = new SeekBar(this);
+        sbG.setMax(255);
+        sbG.setProgress(initG);
+        root.addView(sbG);
+
+        // --- B ---
+        final TextView labelB = new TextView(this);
+        labelB.setText("B: " + initB);
+        labelB.setTextSize(13);
+        root.addView(labelB);
+        final SeekBar sbB = new SeekBar(this);
+        sbB.setMax(255);
+        sbB.setProgress(initB);
+        root.addView(sbB);
+
+        // Hex input (editable, syncs with sliders)
+        final boolean[] textChangingBySeekBar = {false};
+        final EditText hexInput = new EditText(this);
+        hexInput.setGravity(android.view.Gravity.CENTER);
+        hexInput.setTextSize(14);
+        hexInput.setPadding((int)(12*density), (int)(8*density), (int)(12*density), (int)(8*density));
+        hexInput.setHint("#RRGGBB");
+        hexInput.setMaxLines(1);
+        hexInput.setSingleLine(true);
+        hexInput.setInputType(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        hexInput.setText(String.format("#%02X%02X%02X", initR, initG, initB));
+        hexInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (textChangingBySeekBar[0]) return;
+                String hex = s.toString().trim();
+                if (hex.startsWith("#")) hex = hex.substring(1);
+                if (hex.length() != 6) return;
+                try {
+                    int r = Integer.parseInt(hex.substring(0, 2), 16);
+                    int g = Integer.parseInt(hex.substring(2, 4), 16);
+                    int b = Integer.parseInt(hex.substring(4, 6), 16);
+                    rgb[0] = r; rgb[1] = g; rgb[2] = b;
+                    labelR.setText("R: " + r);
+                    labelG.setText("G: " + g);
+                    labelB.setText("B: " + b);
+                    sbR.setProgress(r);
+                    sbG.setProgress(g);
+                    sbB.setProgress(b);
+                    int color = Color.rgb(r, g, b);
+                    if (preview.getBackground() instanceof GradientDrawable) {
+                        ((GradientDrawable) preview.getBackground()).setColor(color);
                     }
+                } catch (NumberFormatException ignored) {}
+            }
+        });
+        root.addView(hexInput);
+
+        SeekBar.OnSeekBarChangeListener listener = new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int val, boolean fromUser) {
+                if (sb == sbR) { rgb[0] = val; labelR.setText("R: " + val); }
+                else if (sb == sbG) { rgb[1] = val; labelG.setText("G: " + val); }
+                else { rgb[2] = val; labelB.setText("B: " + val); }
+                int color = Color.rgb(rgb[0], rgb[1], rgb[2]);
+                if (preview.getBackground() instanceof GradientDrawable) {
+                    ((GradientDrawable) preview.getBackground()).setColor(color);
+                }
+                textChangingBySeekBar[0] = true;
+                hexInput.setText(String.format("#%02X%02X%02X", rgb[0], rgb[1], rgb[2]));
+                textChangingBySeekBar[0] = false;
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        };
+        sbR.setOnSeekBarChangeListener(listener);
+        sbG.setOnSeekBarChangeListener(listener);
+        sbB.setOnSeekBarChangeListener(listener);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("自定义颜色")
+                .setView(root)
+                .setPositiveButton("确定", (d, which) -> {
+                    String hex = String.format("#%02X%02X%02X", rgb[0], rgb[1], rgb[2]);
+                    sharedPrefs.edit().putString(prefKey, hex).putInt(indexKey, spinnerPosition).apply();
+                    updateAllUI();
                 })
                 .setNegativeButton("取消", (d, which) -> resetSpinnerSelection(indexKey))
                 .setOnCancelListener(d -> resetSpinnerSelection(indexKey))
@@ -450,6 +567,14 @@ public class SettingsActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {
                 sharedPrefs.edit().putString(KEY_FILTER_KEYWORDS, s.toString()).apply();
             }
+        });
+    }
+
+    private void setupDedupFilename() {
+        boolean dedup = sharedPrefs.getBoolean(KEY_DEDUP_FILENAME, false);
+        switchDedupFilename.setChecked(dedup);
+        switchDedupFilename.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sharedPrefs.edit().putBoolean(KEY_DEDUP_FILENAME, isChecked).apply();
         });
     }
 
@@ -739,7 +864,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void setupAboutButton() {
         btnAbout.setOnClickListener(v -> {
-            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2026 IRCP Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49了，这两个bug（文件编号和自定义颜色）是不可能修的";
+            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2026 IRCP Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49改了，这两个bug（文件编号和自定义颜色）已修";
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("关于")
                     .setMessage(message)

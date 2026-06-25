@@ -13,6 +13,7 @@
         <item>大吊黑</item>
         <item>泽浩白</item>
         <item>战胜归来</item>
+        <item>自定义</item>
     </string-array>
 
     <string-array name="theme_color_values">
@@ -33,6 +34,7 @@
         <item>敖辅灰</item>
         <item>泽浩白</item>
         <item>战胜归来</item>
+        <item>自定义</item>
     </string-array>
 
     <string-array name="text_color_values">
