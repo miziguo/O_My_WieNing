@@ -9,8 +9,8 @@ android {
         applicationId "o.my.wiening"
         minSdk 26
         targetSdk 34
-        versionCode 21
-        versionName "Release 3.5.1"
+        versionCode 22
+        versionName "Release 4.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

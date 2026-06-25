@@ -102,7 +102,15 @@ public class MainActivity extends AppCompatActivity {
         applyThemeColors();
         LocalBroadcastManager.getInstance(this).registerReceiver(statusReceiver, new IntentFilter(MonitorService.ACTION_SERVICE_STATUS));
         checkPermissionsAndStability();
-        updateServiceStatusUI(MonitorService.isRunning(), "准备就绪");
+        boolean running = MonitorService.isRunning();
+        String statusMsg;
+        if (running) {
+            String last = MonitorService.getLastStatusMessage();
+            statusMsg = (last != null && !last.isEmpty()) ? last : "正在监控";
+        } else {
+            statusMsg = "准备就绪";
+        }
+        updateServiceStatusUI(running, statusMsg);
     }
 
     @Override

@@ -80,9 +80,16 @@ public class MonitorService extends Service {
     private Thread uploadConsumerThread;
     private final List<WatchService> activeWatchers = Collections.synchronizedList(new ArrayList<>());
     private static final AtomicBoolean serviceIsRunning = new AtomicBoolean(false);
+    @Nullable
+    private static volatile String lastStatusMessage;
 
     public static boolean isRunning() {
         return serviceIsRunning.get();
+    }
+
+    @Nullable
+    public static String getLastStatusMessage() {
+        return lastStatusMessage;
     }
 
     @Override
@@ -134,7 +141,9 @@ public class MonitorService extends Service {
         for (MonitorGroup group : groups) {
             executorService.submit(() -> startSingleMonitoringThread(group));
         }
-        updateNotification("正在监控 " + groups.size() + " 个目录");
+        String runningMsg = "正在监控 " + groups.size() + " 个目录";
+        updateNotification(runningMsg);
+        sendServiceStatusBroadcast(true, runningMsg);
         startUploadConsumer();
         showDots();
     }
@@ -220,6 +229,7 @@ public class MonitorService extends Service {
     }
 
     private void sendServiceStatusBroadcast(boolean isRunning, String message) {
+        lastStatusMessage = message;
         Intent intent = new Intent(ACTION_SERVICE_STATUS);
         intent.putExtra(EXTRA_IS_RUNNING, isRunning);
         intent.putExtra(EXTRA_MESSAGE, message);
@@ -601,7 +611,7 @@ public class MonitorService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel c = new NotificationChannel(CHANNEL_ID, "文件监控服务", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel c = new NotificationChannel(CHANNEL_ID, "文件监控服务", NotificationManager.IMPORTANCE_MIN);
             nm.createNotificationChannel(c);
         }
     }

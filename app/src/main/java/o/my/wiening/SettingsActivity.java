@@ -864,7 +864,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void setupAboutButton() {
         btnAbout.setOnClickListener(v -> {
-            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2026 IRCP Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49改了，这两个bug（文件编号和自定义颜色）已修";
+            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2026 IRCP Studio\nデモクラシーは勝利を収めて帰還する！";
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("关于")
                     .setMessage(message)
