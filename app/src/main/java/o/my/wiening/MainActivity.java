@@ -137,9 +137,6 @@ public class MainActivity extends AppCompatActivity {
 
         tvPermissionTitle = findViewById(R.id.tv_permission_title);
         versionView = findViewById(R.id.version);
-        tvAboutTitle1 = findViewById(R.id.tv_about_title1);
-        tvAboutTitle2 = findViewById(R.id.tv_about_title2);
-        tvAboutCopyright = findViewById(R.id.tv_about_copyright);
 
         if (versionView != null) {
             try {

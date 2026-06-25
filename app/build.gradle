@@ -9,8 +9,8 @@ android {
         applicationId "o.my.wiening"
         minSdk 26
         targetSdk 34
-        versionCode 20
-        versionName "Beta 3.0.0|公测版"
+        versionCode 21
+        versionName "Release 3.5.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -48,6 +48,9 @@ dependencies {
     implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
     implementation 'com.google.code.gson:gson:2.10.1'
+
+    // FTP 上传 (Apache Commons Net)
+    implementation 'commons-net:commons-net:3.10.0'
 
     // 测试库
     testImplementation 'junit:junit:4.13.2'

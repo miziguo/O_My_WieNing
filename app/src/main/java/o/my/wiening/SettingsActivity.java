@@ -25,6 +25,8 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.Switch;
@@ -36,6 +38,13 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+
+import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTPReply;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SettingsActivity extends AppCompatActivity {
 
@@ -57,6 +66,14 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_CUSTOM_BUTTON_TEXT_COLOR = "custom_button_text_color";
     public static final String KEY_CUSTOM_GENERAL_TEXT_COLOR = "custom_general_text_color";
 
+    // FTP upload keys
+    public static final String KEY_FTP_ENABLED = "ftp_enabled";
+    public static final String KEY_FTP_HOST = "ftp_host";
+    public static final String KEY_FTP_PORT = "ftp_port";
+    public static final String KEY_FTP_USERNAME = "ftp_username";
+    public static final String KEY_FTP_PASSWORD = "ftp_password";
+    public static final String KEY_FTP_REMOTE_PATH = "ftp_remote_path";
+
     private static final int SELECT_IMAGE_REQUEST = 1001;
 
     // --- UI Elements ---
@@ -64,12 +81,14 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinnerActionBarColor, spinnerButtonColor;
     private Spinner spinnerButtonTextColor, spinnerGeneralTextColor;
     private Switch switchContentFilter;
+    private Switch switchFtpEnabled;
     private EditText etFilterKeywords;
-    private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground;
+    private EditText etFtpHost, etFtpPort, etFtpUsername, etFtpPassword, etFtpRemotePath;
+    private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground, btnFtpTest;
     private SeekBar seekBarCardAlpha;
     private View settingsScrollView;
-    private CardView cardViewFilterOptions, cardViewPersonalization;
-    private TextView tvFilterOptionsTitle, tvPersonalizationTitle;
+    private CardView cardViewFilterOptions, cardViewFtpOptions, cardViewPersonalization;
+    private TextView tvFilterOptionsTitle, tvFtpOptionsTitle, tvPersonalizationTitle;
     private TextView tvLabelActionBar, tvLabelButton, tvLabelCardAlpha;
     private TextView tvLabelButtonTextColor, tvLabelGeneralTextColor;
 
@@ -92,6 +111,8 @@ public class SettingsActivity extends AppCompatActivity {
         initViews();
         setupActionBar();
         setupContentFilter();
+        setupFtpSettings();
+        setupFtpTestButton();
         setupAboutButton();
         setupBackgroundImageButtons();
         setupAlphaSeekBar();
@@ -117,9 +138,17 @@ public class SettingsActivity extends AppCompatActivity {
     private void initViews() {
         settingsScrollView = findViewById(R.id.settings_scroll_view);
         cardViewFilterOptions = findViewById(R.id.card_view_filter_options);
+        cardViewFtpOptions = findViewById(R.id.card_view_ftp_options);
         cardViewPersonalization = findViewById(R.id.card_view_personalization);
         switchContentFilter = findViewById(R.id.switchContentFilter);
+        switchFtpEnabled = findViewById(R.id.switchFtpEnabled);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
+        etFtpHost = findViewById(R.id.etFtpHost);
+        etFtpPort = findViewById(R.id.etFtpPort);
+        etFtpUsername = findViewById(R.id.etFtpUsername);
+        etFtpPassword = findViewById(R.id.etFtpPassword);
+        etFtpRemotePath = findViewById(R.id.etFtpRemotePath);
+        btnFtpTest = findViewById(R.id.btnFtpTest);
         btnAbout = findViewById(R.id.btnAbout);
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
@@ -127,6 +156,7 @@ public class SettingsActivity extends AppCompatActivity {
         btnRestoreBackground = findViewById(R.id.btnRestoreBackground);
         seekBarCardAlpha = findViewById(R.id.seekBarCardAlpha);
         tvFilterOptionsTitle = findViewById(R.id.tv_filter_options_title);
+        tvFtpOptionsTitle = findViewById(R.id.tv_ftp_options_title);
         tvPersonalizationTitle = findViewById(R.id.tv_personalization_title);
         tvLabelActionBar = findViewById(R.id.tv_label_actionbar_color);
         tvLabelButton = findViewById(R.id.tv_label_button_color);
@@ -170,6 +200,10 @@ public class SettingsActivity extends AppCompatActivity {
         if (cardViewFilterOptions != null) {
             cardViewFilterOptions.setCardBackgroundColor(color);
             cardViewFilterOptions.setCardElevation(elevation);
+        }
+        if (cardViewFtpOptions != null) {
+            cardViewFtpOptions.setCardBackgroundColor(color);
+            cardViewFtpOptions.setCardElevation(elevation);
         }
         if (cardViewPersonalization != null) {
             cardViewPersonalization.setCardBackgroundColor(color);
@@ -356,6 +390,7 @@ public class SettingsActivity extends AppCompatActivity {
         btnAbout.setBackgroundTintList(buttonTint);
         btnSelectBackgroundImage.setBackgroundTintList(buttonTint);
         btnRestoreBackground.setBackgroundTintList(buttonTint);
+        btnFtpTest.setBackgroundTintList(buttonTint);
         if (seekBarCardAlpha != null) {
             seekBarCardAlpha.setThumbTintList(buttonTint);
             seekBarCardAlpha.setProgressTintList(buttonTint);
@@ -366,7 +401,9 @@ public class SettingsActivity extends AppCompatActivity {
         btnAbout.setTextColor(buttonTextColor);
         btnSelectBackgroundImage.setTextColor(buttonTextColor);
         btnRestoreBackground.setTextColor(buttonTextColor);
+        btnFtpTest.setTextColor(buttonTextColor);
         if(tvFilterOptionsTitle != null) tvFilterOptionsTitle.setTextColor(generalTextColor);
+        if(tvFtpOptionsTitle != null) tvFtpOptionsTitle.setTextColor(generalTextColor);
         if(switchContentFilter != null) switchContentFilter.setTextColor(generalTextColor);
         if(tvPersonalizationTitle != null) tvPersonalizationTitle.setTextColor(generalTextColor);
         if(tvLabelActionBar != null) tvLabelActionBar.setTextColor(generalTextColor);
@@ -416,9 +453,293 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
+    private void setupFtpSettings() {
+        boolean ftpEnabled = sharedPrefs.getBoolean(KEY_FTP_ENABLED, false);
+        switchFtpEnabled.setChecked(ftpEnabled);
+
+        etFtpHost.setText(sharedPrefs.getString(KEY_FTP_HOST, ""));
+        etFtpPort.setText(String.valueOf(sharedPrefs.getInt(KEY_FTP_PORT, 21)));
+        etFtpUsername.setText(sharedPrefs.getString(KEY_FTP_USERNAME, ""));
+        etFtpPassword.setText(sharedPrefs.getString(KEY_FTP_PASSWORD, ""));
+        etFtpRemotePath.setText(sharedPrefs.getString(KEY_FTP_REMOTE_PATH, "/"));
+
+        setFtpFieldsEnabled(ftpEnabled);
+
+        switchFtpEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sharedPrefs.edit().putBoolean(KEY_FTP_ENABLED, isChecked).apply();
+            setFtpFieldsEnabled(isChecked);
+        });
+
+        TextWatcher ftpSaver = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {}
+        };
+
+        etFtpHost.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                sharedPrefs.edit().putString(KEY_FTP_HOST, s.toString()).apply();
+            }
+        });
+
+        etFtpPort.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                try {
+                    sharedPrefs.edit().putInt(KEY_FTP_PORT, Integer.parseInt(s.toString())).apply();
+                } catch (NumberFormatException ignored) {}
+            }
+        });
+
+        etFtpUsername.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                sharedPrefs.edit().putString(KEY_FTP_USERNAME, s.toString()).apply();
+            }
+        });
+
+        etFtpPassword.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                sharedPrefs.edit().putString(KEY_FTP_PASSWORD, s.toString()).apply();
+            }
+        });
+
+        etFtpRemotePath.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                sharedPrefs.edit().putString(KEY_FTP_REMOTE_PATH, s.toString()).apply();
+            }
+        });
+    }
+
+    private void setFtpFieldsEnabled(boolean enabled) {
+        etFtpHost.setEnabled(enabled);
+        etFtpPort.setEnabled(enabled);
+        etFtpUsername.setEnabled(enabled);
+        etFtpPassword.setEnabled(enabled);
+        etFtpRemotePath.setEnabled(enabled);
+    }
+
+    private void setupFtpTestButton() {
+        btnFtpTest.setOnClickListener(v -> {
+            final String host = etFtpHost.getText().toString().trim();
+            int tmpPort;
+            try {
+                tmpPort = Integer.parseInt(etFtpPort.getText().toString().trim());
+            } catch (NumberFormatException e) {
+                tmpPort = 21;
+            }
+            final int port = tmpPort;
+            final String username = etFtpUsername.getText().toString().trim();
+            final String password = etFtpPassword.getText().toString();
+            final String remotePath = etFtpRemotePath.getText().toString().trim();
+
+            if (host.isEmpty()) {
+                Toast.makeText(this, "请先填写主机地址", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            btnFtpTest.setEnabled(false);
+            btnFtpTest.setText("连接中…");
+
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            executor.submit(() -> {
+                String result = testFtpConnection(host, port, username, password, remotePath);
+                runOnUiThread(() -> {
+                    btnFtpTest.setEnabled(true);
+                    btnFtpTest.setText("测试连接");
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                            .setTitle("FTP 连接测试")
+                            .setMessage(result);
+                    if (result != null && result.startsWith("✅")) {
+                        builder.setPositiveButton("确定", null);
+                        builder.setNeutralButton("浏览目录", (d, w) ->
+                                showFtpDirectoryBrowser(host, port, username, password, remotePath));
+                    } else {
+                        builder.setPositiveButton("确定", null);
+                    }
+                    builder.create().show();
+                });
+                executor.shutdown();
+            });
+        });
+    }
+
+    private String testFtpConnection(String host, int port, String username, String password, String remotePath) {
+        FTPClient ftp = new FTPClient();
+        long startTime = System.currentTimeMillis();
+        try {
+            ftp.setConnectTimeout(10000);
+            ftp.setDataTimeout(10000);
+            ftp.connect(host, port);
+            int reply = ftp.getReplyCode();
+            if (!FTPReply.isPositiveCompletion(reply)) {
+                ftp.disconnect();
+                return "❌ 连接失败\n服务器返回码: " + reply;
+            }
+
+            ftp.setControlEncoding("UTF-8");
+            if (!ftp.login(username, password)) {
+                ftp.logout();
+                return "❌ 登录失败\n用户名或密码错误";
+            }
+
+            ftp.enterLocalPassiveMode();
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("✅ 连接成功！\n");
+            sb.append("延迟: ").append(elapsed).append("ms\n");
+            sb.append("服务器: ").append(host).append(":").append(port).append("\n");
+
+            // 列出根目录
+            String[] names = ftp.listNames("/");
+            if (names != null) {
+                sb.append("根目录文件数: ").append(names.length);
+            }
+
+            if (!remotePath.isEmpty() && !remotePath.equals("/")) {
+                sb.append("\n远程路径: ").append(remotePath);
+                boolean dirExists = ftp.changeWorkingDirectory(remotePath);
+                sb.append(dirExists ? " ✅ 可访问" : " ⚠️ 不存在（上传时自动创建）");
+            }
+
+            ftp.logout();
+            return sb.toString();
+
+        } catch (Exception e) {
+            return "❌ 连接失败\n" + e.getClass().getSimpleName() + ": " + e.getMessage();
+        } finally {
+            try {
+                if (ftp.isConnected()) ftp.disconnect();
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void showFtpDirectoryBrowser(final String host, final int port,
+                                          final String username, final String password,
+                                          String startPath) {
+        final String[] currentPath = {startPath.isEmpty() ? "/" : startPath};
+
+        final TextView tvPath = new TextView(this);
+        tvPath.setPadding(24, 12, 24, 4);
+        tvPath.setTextSize(14);
+        tvPath.setTextColor(Color.DKGRAY);
+
+        final ListView listView = new ListView(this);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(0, 8, 0, 0);
+        layout.addView(tvPath);
+        layout.addView(listView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (int) (300 * getResources().getDisplayMetrics().density)));
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("浏览远程目录")
+                .setView(layout)
+                .setPositiveButton("选择此目录", (d, w) -> {
+                    String path = currentPath[0];
+                    if (!path.endsWith("/")) path += "/";
+                    etFtpRemotePath.setText(path);
+                })
+                .setNegativeButton("取消", null)
+                .create();
+
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        final Runnable loadDirs = () -> {
+            runOnUiThread(() -> {
+                tvPath.setText("当前路径: " + currentPath[0]);
+                listView.setAdapter(new ArrayAdapter<>(this,
+                        android.R.layout.simple_list_item_1,
+                        new String[]{"加载中…"}));
+            });
+
+            executor.submit(() -> {
+                java.util.List<String> dirs = fetchFtpDirectories(host, port, username, password, currentPath[0]);
+                runOnUiThread(() -> listView.setAdapter(new ArrayAdapter<>(this,
+                        android.R.layout.simple_list_item_1, dirs)));
+            });
+        };
+
+        listView.setOnItemClickListener((parent, view, position, id) -> {
+            String item = (String) parent.getItemAtPosition(position);
+            if (item == null) return;
+            if (item.startsWith("📁 ..")) {
+                String path = currentPath[0];
+                if ("/".equals(path)) return;
+                int lastSlash = path.lastIndexOf('/');
+                currentPath[0] = lastSlash <= 0 ? "/" : path.substring(0, lastSlash);
+            } else if (item.startsWith("📁 ")) {
+                String dirName = item.substring(2).trim();
+                currentPath[0] = currentPath[0].endsWith("/") ?
+                        currentPath[0] + dirName : currentPath[0] + "/" + dirName;
+            }
+            loadDirs.run();
+        });
+
+        dialog.setOnDismissListener(d -> executor.shutdown());
+        dialog.show();
+        loadDirs.run();
+    }
+
+    private java.util.List<String> fetchFtpDirectories(String host, int port, String username,
+                                                        String password, String path) {
+        java.util.List<String> dirs = new java.util.ArrayList<>();
+        FTPClient ftp = new FTPClient();
+        try {
+            ftp.setConnectTimeout(10000);
+            ftp.setDataTimeout(10000);
+            ftp.connect(host, port);
+            if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
+                dirs.add("⚠️ 服务器拒绝连接");
+                return dirs;
+            }
+            ftp.setControlEncoding("UTF-8");
+            if (!ftp.login(username, password)) {
+                dirs.add("⚠️ 登录失败");
+                return dirs;
+            }
+            ftp.enterLocalPassiveMode();
+
+            if (!"/".equals(path)) {
+                dirs.add("📁 ..");
+            }
+
+            FTPFile[] files = ftp.listFiles(path);
+            if (files != null) {
+                for (FTPFile file : files) {
+                    if (file.isDirectory()) {
+                        dirs.add("📁 " + file.getName());
+                    }
+                }
+            }
+
+            if (dirs.isEmpty() || (dirs.size() == 1 && dirs.get(0).startsWith("📁 .."))) {
+                dirs.add("（此目录为空）");
+            }
+
+            ftp.logout();
+        } catch (java.io.IOException e) {
+            dirs.add("⚠️ 读取失败: " + e.getMessage());
+        } finally {
+            try { if (ftp.isConnected()) ftp.disconnect(); } catch (java.io.IOException ignored) {}
+        }
+        return dirs;
+    }
+
     private void setupAboutButton() {
         btnAbout.setOnClickListener(v -> {
-            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2025 MUW Group Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49了，这两个bug（文件编号和自定义颜色）是不可能修的";
+            String message = "再次声明\n南娘是我们最好的朋友，请不要对南娘使用本软件。如果对南娘使用本软件被弄死了，软件作者概不负责\n本软件是为了防止你偷拍被发现而存不下照片的软件\n使用方法：源填入存储相机照片的绝对路径，目标你随便新建一个文件夹(如果你的相册会扫描整个/sdcard，那么请加.隐藏或者加.nomedia)并填入绝对路径，开始监控，软件会自动检测源文件夹里新增的文件并复制到目标文件夹\n设置里有我加的附加功能，应该会很好玩吧\n\n如果出现bug或者有什么新想法，请访问https://github.com/miziguo/O_My_WieNing/issues提交issues \n\n ©2026 IRCP Studio\nデモクラシーは勝利を収めて帰還する！\n凌晨2：49了，这两个bug（文件编号和自定义颜色）是不可能修的";
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("关于")
                     .setMessage(message)

@@ -58,6 +58,96 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_view_ftp_options"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:strokeColor="@android:color/darker_gray"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_ftp_options_title"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="复制后自动上传NAS (FTP)"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <Switch
+                        android:id="@+id/switchFtpEnabled"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <EditText
+                    android:id="@+id/etFtpHost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="FTP 主机地址 (如 192.168.1.100)"
+                    android:inputType="textUri"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/etFtpPort"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:hint="端口 (默认 21)"
+                    android:inputType="number"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/etFtpUsername"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:hint="用户名"
+                    android:inputType="text"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/etFtpPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:hint="密码"
+                    android:inputType="textPassword"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/etFtpRemotePath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:hint="远程路径 (如 /share/backup)"
+                    android:inputType="textUri"
+                    android:textSize="14sp" />
+
+                <Button
+                    android:id="@+id/btnFtpTest"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="测试连接" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view_personalization"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

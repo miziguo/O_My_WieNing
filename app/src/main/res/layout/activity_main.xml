@@ -238,36 +238,6 @@
             app:strokeColor="@android:color/darker_gray"
             app:strokeWidth="1dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tv_about_title1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="本软件由miziguo开发"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_about_title2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="©2025 MUW Group Studio"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_about_copyright"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="其实根本就没有版权"
-                    android:textSize="10sp"
-                    android:textStyle="italic" />
-            </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
