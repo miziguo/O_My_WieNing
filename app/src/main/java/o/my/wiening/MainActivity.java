@@ -428,7 +428,7 @@ public class MainActivity extends AppCompatActivity {
         boolean isJune4th = (c.get(Calendar.MONTH) == Calendar.JUNE) && (c.get(Calendar.DAY_OF_MONTH) == 4);
         if (tvEasterEgg != null) {
             tvEasterEgg.setVisibility(isJune4th ? View.VISIBLE : View.GONE);
-            if (isJune4th) tvEasterEgg.setText("铭记历史，勿忘六四");
+            if (isJune4th) tvEasterEgg.setText("????，????");
         }
     }
 
