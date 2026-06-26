@@ -41,10 +41,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
-import org.apache.commons.net.ftp.FTPClient;
-import org.apache.commons.net.ftp.FTPFile;
-import org.apache.commons.net.ftp.FTPReply;
-
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,13 +64,12 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_CUSTOM_BUTTON_TEXT_COLOR = "custom_button_text_color";
     public static final String KEY_CUSTOM_GENERAL_TEXT_COLOR = "custom_general_text_color";
 
-    // FTP upload keys
-    public static final String KEY_FTP_ENABLED = "ftp_enabled";
-    public static final String KEY_FTP_HOST = "ftp_host";
-    public static final String KEY_FTP_PORT = "ftp_port";
-    public static final String KEY_FTP_USERNAME = "ftp_username";
-    public static final String KEY_FTP_PASSWORD = "ftp_password";
-    public static final String KEY_FTP_REMOTE_PATH = "ftp_remote_path";
+    // WebDAV upload keys
+    public static final String KEY_WEBDAV_ENABLED = "webdav_enabled";
+    public static final String KEY_WEBDAV_URL = "webdav_url";
+    public static final String KEY_WEBDAV_USERNAME = "webdav_username";
+    public static final String KEY_WEBDAV_PASSWORD = "webdav_password";
+    public static final String KEY_WEBDAV_REMOTE_PATH = "webdav_remote_path";
 
     // Dedup filename on conflict
     public static final String KEY_DEDUP_FILENAME = "dedup_filename";
@@ -86,15 +81,15 @@ public class SettingsActivity extends AppCompatActivity {
     private Spinner spinnerActionBarColor, spinnerButtonColor;
     private Spinner spinnerButtonTextColor, spinnerGeneralTextColor;
     private Switch switchContentFilter;
-    private Switch switchFtpEnabled;
+    private Switch switchWebdavEnabled;
     private Switch switchDedupFilename;
     private EditText etFilterKeywords;
-    private EditText etFtpHost, etFtpPort, etFtpUsername, etFtpPassword, etFtpRemotePath;
-    private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground, btnFtpTest;
+    private EditText etWebdavUrl, etWebdavUsername, etWebdavPassword, etWebdavRemotePath;
+    private Button btnAbout, btnSelectBackgroundImage, btnRestoreBackground, btnWebdavTest, btnWebdavBrowse;
     private SeekBar seekBarCardAlpha;
     private View settingsScrollView;
-    private CardView cardViewFilterOptions, cardViewFtpOptions, cardViewPersonalization;
-    private TextView tvFilterOptionsTitle, tvFtpOptionsTitle, tvPersonalizationTitle;
+    private CardView cardViewFilterOptions, cardViewWebdavOptions, cardViewPersonalization;
+    private TextView tvFilterOptionsTitle, tvWebdavOptionsTitle, tvPersonalizationTitle;
     private TextView tvLabelActionBar, tvLabelButton, tvLabelCardAlpha;
     private TextView tvLabelButtonTextColor, tvLabelGeneralTextColor;
 
@@ -118,8 +113,9 @@ public class SettingsActivity extends AppCompatActivity {
         setupActionBar();
         setupContentFilter();
         setupDedupFilename();
-        setupFtpSettings();
-        setupFtpTestButton();
+        setupWebdavSettings();
+        setupWebdavTestButton();
+        setupWebdavBrowseButton();
         setupAboutButton();
         setupBackgroundImageButtons();
         setupAlphaSeekBar();
@@ -145,18 +141,18 @@ public class SettingsActivity extends AppCompatActivity {
     private void initViews() {
         settingsScrollView = findViewById(R.id.settings_scroll_view);
         cardViewFilterOptions = findViewById(R.id.card_view_filter_options);
-        cardViewFtpOptions = findViewById(R.id.card_view_ftp_options);
+        cardViewWebdavOptions = findViewById(R.id.card_view_webdav_options);
         cardViewPersonalization = findViewById(R.id.card_view_personalization);
         switchContentFilter = findViewById(R.id.switchContentFilter);
-        switchFtpEnabled = findViewById(R.id.switchFtpEnabled);
+        switchWebdavEnabled = findViewById(R.id.switchWebdavEnabled);
         switchDedupFilename = findViewById(R.id.switchDedupFilename);
         etFilterKeywords = findViewById(R.id.etFilterKeywords);
-        etFtpHost = findViewById(R.id.etFtpHost);
-        etFtpPort = findViewById(R.id.etFtpPort);
-        etFtpUsername = findViewById(R.id.etFtpUsername);
-        etFtpPassword = findViewById(R.id.etFtpPassword);
-        etFtpRemotePath = findViewById(R.id.etFtpRemotePath);
-        btnFtpTest = findViewById(R.id.btnFtpTest);
+        etWebdavUrl = findViewById(R.id.etWebdavUrl);
+        etWebdavUsername = findViewById(R.id.etWebdavUsername);
+        etWebdavPassword = findViewById(R.id.etWebdavPassword);
+        etWebdavRemotePath = findViewById(R.id.etWebdavRemotePath);
+        btnWebdavTest = findViewById(R.id.btnWebdavTest);
+        btnWebdavBrowse = findViewById(R.id.btnWebdavBrowse);
         btnAbout = findViewById(R.id.btnAbout);
         spinnerActionBarColor = findViewById(R.id.spinnerActionBarColor);
         spinnerButtonColor = findViewById(R.id.spinnerButtonColor);
@@ -164,7 +160,7 @@ public class SettingsActivity extends AppCompatActivity {
         btnRestoreBackground = findViewById(R.id.btnRestoreBackground);
         seekBarCardAlpha = findViewById(R.id.seekBarCardAlpha);
         tvFilterOptionsTitle = findViewById(R.id.tv_filter_options_title);
-        tvFtpOptionsTitle = findViewById(R.id.tv_ftp_options_title);
+        tvWebdavOptionsTitle = findViewById(R.id.tv_webdav_options_title);
         tvPersonalizationTitle = findViewById(R.id.tv_personalization_title);
         tvLabelActionBar = findViewById(R.id.tv_label_actionbar_color);
         tvLabelButton = findViewById(R.id.tv_label_button_color);
@@ -209,9 +205,9 @@ public class SettingsActivity extends AppCompatActivity {
             cardViewFilterOptions.setCardBackgroundColor(color);
             cardViewFilterOptions.setCardElevation(elevation);
         }
-        if (cardViewFtpOptions != null) {
-            cardViewFtpOptions.setCardBackgroundColor(color);
-            cardViewFtpOptions.setCardElevation(elevation);
+        if (cardViewWebdavOptions != null) {
+            cardViewWebdavOptions.setCardBackgroundColor(color);
+            cardViewWebdavOptions.setCardElevation(elevation);
         }
         if (cardViewPersonalization != null) {
             cardViewPersonalization.setCardBackgroundColor(color);
@@ -507,7 +503,8 @@ public class SettingsActivity extends AppCompatActivity {
         btnAbout.setBackgroundTintList(buttonTint);
         btnSelectBackgroundImage.setBackgroundTintList(buttonTint);
         btnRestoreBackground.setBackgroundTintList(buttonTint);
-        btnFtpTest.setBackgroundTintList(buttonTint);
+        btnWebdavTest.setBackgroundTintList(buttonTint);
+        btnWebdavBrowse.setBackgroundTintList(buttonTint);
         if (seekBarCardAlpha != null) {
             seekBarCardAlpha.setThumbTintList(buttonTint);
             seekBarCardAlpha.setProgressTintList(buttonTint);
@@ -518,9 +515,10 @@ public class SettingsActivity extends AppCompatActivity {
         btnAbout.setTextColor(buttonTextColor);
         btnSelectBackgroundImage.setTextColor(buttonTextColor);
         btnRestoreBackground.setTextColor(buttonTextColor);
-        btnFtpTest.setTextColor(buttonTextColor);
+        btnWebdavTest.setTextColor(buttonTextColor);
+        btnWebdavBrowse.setTextColor(buttonTextColor);
         if(tvFilterOptionsTitle != null) tvFilterOptionsTitle.setTextColor(generalTextColor);
-        if(tvFtpOptionsTitle != null) tvFtpOptionsTitle.setTextColor(generalTextColor);
+        if(tvWebdavOptionsTitle != null) tvWebdavOptionsTitle.setTextColor(generalTextColor);
         if(switchContentFilter != null) switchContentFilter.setTextColor(generalTextColor);
         if(tvPersonalizationTitle != null) tvPersonalizationTitle.setTextColor(generalTextColor);
         if(tvLabelActionBar != null) tvLabelActionBar.setTextColor(generalTextColor);
@@ -578,288 +576,304 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    private void setupFtpSettings() {
-        boolean ftpEnabled = sharedPrefs.getBoolean(KEY_FTP_ENABLED, false);
-        switchFtpEnabled.setChecked(ftpEnabled);
+    private void setupWebdavSettings() {
+        boolean enabled = sharedPrefs.getBoolean(KEY_WEBDAV_ENABLED, false);
+        switchWebdavEnabled.setChecked(enabled);
 
-        etFtpHost.setText(sharedPrefs.getString(KEY_FTP_HOST, ""));
-        etFtpPort.setText(String.valueOf(sharedPrefs.getInt(KEY_FTP_PORT, 21)));
-        etFtpUsername.setText(sharedPrefs.getString(KEY_FTP_USERNAME, ""));
-        etFtpPassword.setText(sharedPrefs.getString(KEY_FTP_PASSWORD, ""));
-        etFtpRemotePath.setText(sharedPrefs.getString(KEY_FTP_REMOTE_PATH, "/"));
+        etWebdavUrl.setText(sharedPrefs.getString(KEY_WEBDAV_URL, ""));
+        etWebdavUsername.setText(sharedPrefs.getString(KEY_WEBDAV_USERNAME, ""));
+        etWebdavPassword.setText(sharedPrefs.getString(KEY_WEBDAV_PASSWORD, ""));
+        etWebdavRemotePath.setText(sharedPrefs.getString(KEY_WEBDAV_REMOTE_PATH, ""));
 
-        setFtpFieldsEnabled(ftpEnabled);
+        setWebdavFieldsEnabled(enabled);
 
-        switchFtpEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            sharedPrefs.edit().putBoolean(KEY_FTP_ENABLED, isChecked).apply();
-            setFtpFieldsEnabled(isChecked);
+        switchWebdavEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            sharedPrefs.edit().putBoolean(KEY_WEBDAV_ENABLED, isChecked).apply();
+            setWebdavFieldsEnabled(isChecked);
         });
 
-        TextWatcher ftpSaver = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {}
-        };
-
-        etFtpHost.addTextChangedListener(new TextWatcher() {
+        etWebdavUrl.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
-                sharedPrefs.edit().putString(KEY_FTP_HOST, s.toString()).apply();
+                sharedPrefs.edit().putString(KEY_WEBDAV_URL, s.toString()).apply();
             }
         });
 
-        etFtpPort.addTextChangedListener(new TextWatcher() {
+        etWebdavUsername.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
-                try {
-                    sharedPrefs.edit().putInt(KEY_FTP_PORT, Integer.parseInt(s.toString())).apply();
-                } catch (NumberFormatException ignored) {}
+                sharedPrefs.edit().putString(KEY_WEBDAV_USERNAME, s.toString()).apply();
             }
         });
 
-        etFtpUsername.addTextChangedListener(new TextWatcher() {
+        etWebdavPassword.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
-                sharedPrefs.edit().putString(KEY_FTP_USERNAME, s.toString()).apply();
+                sharedPrefs.edit().putString(KEY_WEBDAV_PASSWORD, s.toString()).apply();
             }
         });
 
-        etFtpPassword.addTextChangedListener(new TextWatcher() {
+        etWebdavRemotePath.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
-                sharedPrefs.edit().putString(KEY_FTP_PASSWORD, s.toString()).apply();
-            }
-        });
-
-        etFtpRemotePath.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                sharedPrefs.edit().putString(KEY_FTP_REMOTE_PATH, s.toString()).apply();
+                sharedPrefs.edit().putString(KEY_WEBDAV_REMOTE_PATH, s.toString()).apply();
             }
         });
     }
 
-    private void setFtpFieldsEnabled(boolean enabled) {
-        etFtpHost.setEnabled(enabled);
-        etFtpPort.setEnabled(enabled);
-        etFtpUsername.setEnabled(enabled);
-        etFtpPassword.setEnabled(enabled);
-        etFtpRemotePath.setEnabled(enabled);
+    private void setWebdavFieldsEnabled(boolean enabled) {
+        etWebdavUrl.setEnabled(enabled);
+        etWebdavUsername.setEnabled(enabled);
+        etWebdavPassword.setEnabled(enabled);
+        etWebdavRemotePath.setEnabled(enabled);
+        btnWebdavBrowse.setEnabled(enabled);
     }
 
-    private void setupFtpTestButton() {
-        btnFtpTest.setOnClickListener(v -> {
-            final String host = etFtpHost.getText().toString().trim();
-            int tmpPort;
-            try {
-                tmpPort = Integer.parseInt(etFtpPort.getText().toString().trim());
-            } catch (NumberFormatException e) {
-                tmpPort = 21;
-            }
-            final int port = tmpPort;
-            final String username = etFtpUsername.getText().toString().trim();
-            final String password = etFtpPassword.getText().toString();
-            final String remotePath = etFtpRemotePath.getText().toString().trim();
+    private void setupWebdavTestButton() {
+        btnWebdavTest.setOnClickListener(v -> {
+            final String url = etWebdavUrl.getText().toString().trim();
+            final String username = etWebdavUsername.getText().toString().trim();
+            final String password = etWebdavPassword.getText().toString();
 
-            if (host.isEmpty()) {
-                Toast.makeText(this, "请先填写主机地址", Toast.LENGTH_SHORT).show();
+            if (url.isEmpty()) {
+                Toast.makeText(this, "请先填写 WebDAV 地址", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            btnFtpTest.setEnabled(false);
-            btnFtpTest.setText("连接中…");
+            btnWebdavTest.setEnabled(false);
+            btnWebdavTest.setText("连接中…");
 
             ExecutorService executor = Executors.newSingleThreadExecutor();
             executor.submit(() -> {
-                String result = testFtpConnection(host, port, username, password, remotePath);
+                String result = testWebdavConnection(url, username, password);
                 runOnUiThread(() -> {
-                    btnFtpTest.setEnabled(true);
-                    btnFtpTest.setText("测试连接");
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                            .setTitle("FTP 连接测试")
-                            .setMessage(result);
-                    if (result != null && result.startsWith("✅")) {
-                        builder.setPositiveButton("确定", null);
-                        builder.setNeutralButton("浏览目录", (d, w) ->
-                                showFtpDirectoryBrowser(host, port, username, password, remotePath));
-                    } else {
-                        builder.setPositiveButton("确定", null);
-                    }
-                    builder.create().show();
+                    btnWebdavTest.setEnabled(true);
+                    btnWebdavTest.setText("测试连接");
+                    new AlertDialog.Builder(this)
+                            .setTitle("WebDAV 连接测试")
+                            .setMessage(result)
+                            .setPositiveButton("确定", null)
+                            .create().show();
                 });
                 executor.shutdown();
             });
         });
     }
 
-    private String testFtpConnection(String host, int port, String username, String password, String remotePath) {
-        FTPClient ftp = new FTPClient();
+    private static final okhttp3.MediaType XML_MEDIA_TYPE = okhttp3.MediaType.parse("application/xml; charset=utf-8");
+    private static final String PROPFIND_BODY =
+            "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
+            "<D:propfind xmlns:D=\"DAV:\">\n" +
+            "  <D:prop>\n" +
+            "    <D:displayname/>\n" +
+            "    <D:resourcetype/>\n" +
+            "  </D:prop>\n" +
+            "</D:propfind>";
+
+    private String testWebdavConnection(String baseUrl, String username, String password) {
+        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+
+        // 确保 URL 以 / 结尾
+        String url = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+
+        okhttp3.Request.Builder reqBuilder = new okhttp3.Request.Builder()
+                .url(url)
+                .method("PROPFIND", okhttp3.RequestBody.create(PROPFIND_BODY, XML_MEDIA_TYPE))
+                .header("Depth", "0");
+
+        if (!username.isEmpty()) {
+            String credential = okhttp3.Credentials.basic(username, password);
+            reqBuilder.header("Authorization", credential);
+        }
+
         long startTime = System.currentTimeMillis();
-        try {
-            ftp.setConnectTimeout(10000);
-            ftp.setDataTimeout(10000);
-            ftp.connect(host, port);
-            int reply = ftp.getReplyCode();
-            if (!FTPReply.isPositiveCompletion(reply)) {
-                ftp.disconnect();
-                return "❌ 连接失败\n服务器返回码: " + reply;
-            }
-
-            ftp.setControlEncoding("UTF-8");
-            if (!ftp.login(username, password)) {
-                ftp.logout();
-                return "❌ 登录失败\n用户名或密码错误";
-            }
-
-            ftp.enterLocalPassiveMode();
+        try (okhttp3.Response response = client.newCall(reqBuilder.build()).execute()) {
             long elapsed = System.currentTimeMillis() - startTime;
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("✅ 连接成功！\n");
-            sb.append("延迟: ").append(elapsed).append("ms\n");
-            sb.append("服务器: ").append(host).append(":").append(port).append("\n");
-
-            // 列出根目录
-            String[] names = ftp.listNames("/");
-            if (names != null) {
-                sb.append("根目录文件数: ").append(names.length);
+            int code = response.code();
+            if (code >= 200 && code < 300) {
+                return "✅ 连接成功！\n延迟: " + elapsed + "ms\n服务器: " + url +
+                        "\n响应码: " + code + " " + response.message();
+            } else if (code == 401) {
+                return "❌ 认证失败\n用户名或密码错误";
+            } else if (code == 405) {
+                return "❌ 服务器不支持 WebDAV\n该地址未启用 WebDAV 协议（405 Method Not Allowed）\n\n请确认 NAS 已开启 WebDAV 服务，且路径正确。";
+            } else {
+                return "❌ 连接失败\n响应码: " + code + " " + response.message();
             }
-
-            if (!remotePath.isEmpty() && !remotePath.equals("/")) {
-                sb.append("\n远程路径: ").append(remotePath);
-                boolean dirExists = ftp.changeWorkingDirectory(remotePath);
-                sb.append(dirExists ? " ✅ 可访问" : " ⚠️ 不存在（上传时自动创建）");
-            }
-
-            ftp.logout();
-            return sb.toString();
-
+        } catch (javax.net.ssl.SSLHandshakeException e) {
+            return "❌ SSL 证书错误\n" + e.getMessage() + "\n\n提示：若使用自签名证书，请先通过浏览器信任该证书。";
         } catch (Exception e) {
             return "❌ 连接失败\n" + e.getClass().getSimpleName() + ": " + e.getMessage();
-        } finally {
-            try {
-                if (ftp.isConnected()) ftp.disconnect();
-            } catch (Exception ignored) {}
         }
     }
 
-    private void showFtpDirectoryBrowser(final String host, final int port,
-                                          final String username, final String password,
-                                          String startPath) {
-        final String[] currentPath = {startPath.isEmpty() ? "/" : startPath};
+    private void setupWebdavBrowseButton() {
+        btnWebdavBrowse.setOnClickListener(v -> {
+            final String baseUrl = etWebdavUrl.getText().toString().trim();
+            final String username = etWebdavUsername.getText().toString().trim();
+            final String password = etWebdavPassword.getText().toString();
 
-        final TextView tvPath = new TextView(this);
-        tvPath.setPadding(24, 12, 24, 4);
-        tvPath.setTextSize(14);
-        tvPath.setTextColor(Color.DKGRAY);
-
-        final ListView listView = new ListView(this);
-
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(0, 8, 0, 0);
-        layout.addView(tvPath);
-        layout.addView(listView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                (int) (300 * getResources().getDisplayMetrics().density)));
-
-        final AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("浏览远程目录")
-                .setView(layout)
-                .setPositiveButton("选择此目录", (d, w) -> {
-                    String path = currentPath[0];
-                    if (!path.endsWith("/")) path += "/";
-                    etFtpRemotePath.setText(path);
-                })
-                .setNegativeButton("取消", null)
-                .create();
-
-        final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-        final Runnable loadDirs = () -> {
-            runOnUiThread(() -> {
-                tvPath.setText("当前路径: " + currentPath[0]);
-                listView.setAdapter(new ArrayAdapter<>(this,
-                        android.R.layout.simple_list_item_1,
-                        new String[]{"加载中…"}));
-            });
-
-            executor.submit(() -> {
-                java.util.List<String> dirs = fetchFtpDirectories(host, port, username, password, currentPath[0]);
-                runOnUiThread(() -> listView.setAdapter(new ArrayAdapter<>(this,
-                        android.R.layout.simple_list_item_1, dirs)));
-            });
-        };
-
-        listView.setOnItemClickListener((parent, view, position, id) -> {
-            String item = (String) parent.getItemAtPosition(position);
-            if (item == null) return;
-            if (item.startsWith("📁 ..")) {
-                String path = currentPath[0];
-                if ("/".equals(path)) return;
-                int lastSlash = path.lastIndexOf('/');
-                currentPath[0] = lastSlash <= 0 ? "/" : path.substring(0, lastSlash);
-            } else if (item.startsWith("📁 ")) {
-                String dirName = item.substring(2).trim();
-                currentPath[0] = currentPath[0].endsWith("/") ?
-                        currentPath[0] + dirName : currentPath[0] + "/" + dirName;
+            if (baseUrl.isEmpty()) {
+                Toast.makeText(this, "请先填写 WebDAV 地址", Toast.LENGTH_SHORT).show();
+                return;
             }
-            loadDirs.run();
-        });
 
-        dialog.setOnDismissListener(d -> executor.shutdown());
-        dialog.show();
-        loadDirs.run();
+            String startPath = etWebdavRemotePath.getText().toString().trim();
+            if (startPath.isEmpty()) startPath = "/";
+
+            showWebdavBrowserDialog(baseUrl, startPath, username, password);
+        });
     }
 
-    private java.util.List<String> fetchFtpDirectories(String host, int port, String username,
-                                                        String password, String path) {
-        java.util.List<String> dirs = new java.util.ArrayList<>();
-        FTPClient ftp = new FTPClient();
+    private void showWebdavBrowserDialog(String baseUrl, String currentPath,
+                                          String username, String password) {
+        // 先获取当前路径下的目录列表
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.submit(() -> {
+            java.util.List<String[]> dirs = fetchWebdavDirectories(baseUrl, currentPath, username, password);
+            runOnUiThread(() -> {
+                executor.shutdown();
+                if (dirs == null) {
+                    Toast.makeText(this, "读取目录失败，请检查连接和权限", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // 构建显示文本
+                String[] itemNames = new String[dirs.size() + 1];
+                itemNames[0] = "[选择当前目录] " + currentPath;
+                for (int i = 0; i < dirs.size(); i++) {
+                    String icon = dirs.get(i)[0]; // "📁" 或 "📄"
+                    String name = dirs.get(i)[1];
+                    itemNames[i + 1] = icon + " " + name;
+                }
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("浏览: " + currentPath);
+
+                if (dirs.isEmpty()) {
+                    builder.setMessage("该目录为空\n\n选择当前路径作为远程目录？");
+                    builder.setPositiveButton("选择此路径", (d, w) -> {
+                        etWebdavRemotePath.setText(currentPath);
+                    });
+                    builder.setNegativeButton("返回", null);
+                } else {
+                    builder.setItems(itemNames, (dialog, which) -> {
+                        if (which == 0) {
+                            // 选择当前目录
+                            etWebdavRemotePath.setText(currentPath);
+                            Toast.makeText(this, "已选择: " + currentPath, Toast.LENGTH_SHORT).show();
+                        } else {
+                            int idx = which - 1;
+                            String name = dirs.get(idx)[1];
+                            String newPath = currentPath.endsWith("/")
+                                    ? currentPath + name + "/"
+                                    : currentPath + "/" + name + "/";
+                            showWebdavBrowserDialog(baseUrl, newPath, username, password);
+                        }
+                    });
+                }
+                builder.setNegativeButton("返回上级", (d, w) -> {
+                    if ("/".equals(currentPath)) return;
+                    String parent = currentPath.substring(0, currentPath.lastIndexOf('/'));
+                    if (parent.isEmpty()) parent = "/";
+                    parent = parent.endsWith("/") ? parent : parent + "/";
+                    showWebdavBrowserDialog(baseUrl, parent, username, password);
+                });
+
+                AlertDialog dialog = builder.create();
+                dialog.show();
+            });
+        });
+    }
+
+    /** 返回 List<String[]>，每个 String[] = {图标, 名称}；null 表示失败 */
+    private java.util.List<String[]> fetchWebdavDirectories(String baseUrl, String path,
+                                                             String username, String password) {
+        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+
+        String base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        // 去掉开头的 / 避免双斜杠
+        String relativePath = path.startsWith("/") ? path.substring(1) : path;
+        String url = relativePath.isEmpty() ? base : base + relativePath;
+        if (!url.endsWith("/")) url += "/";
+
+        okhttp3.Request.Builder reqBuilder = new okhttp3.Request.Builder()
+                .url(url)
+                .method("PROPFIND", okhttp3.RequestBody.create(PROPFIND_BODY, XML_MEDIA_TYPE))
+                .header("Depth", "1");
+        if (!username.isEmpty()) {
+            reqBuilder.header("Authorization", okhttp3.Credentials.basic(username, password));
+        }
+
+        try (okhttp3.Response response = client.newCall(reqBuilder.build()).execute()) {
+            if (response.code() < 200 || response.code() >= 300) return null;
+            String body = response.body() != null ? response.body().string() : "";
+            return parseWebdavListing(body, url);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 解析 PROPFIND Depth:1 的 XML 响应，提取目录/文件列表 */
+    private java.util.List<String[]> parseWebdavListing(String xml, String baseUrl) {
+        java.util.List<String[]> result = new java.util.ArrayList<>();
         try {
-            ftp.setConnectTimeout(10000);
-            ftp.setDataTimeout(10000);
-            ftp.connect(host, port);
-            if (!FTPReply.isPositiveCompletion(ftp.getReplyCode())) {
-                dirs.add("⚠️ 服务器拒绝连接");
-                return dirs;
-            }
-            ftp.setControlEncoding("UTF-8");
-            if (!ftp.login(username, password)) {
-                dirs.add("⚠️ 登录失败");
-                return dirs;
-            }
-            ftp.enterLocalPassiveMode();
+            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            org.w3c.dom.Document doc = factory.newDocumentBuilder()
+                    .parse(new org.xml.sax.InputSource(new java.io.StringReader(xml)));
 
-            if (!"/".equals(path)) {
-                dirs.add("📁 ..");
-            }
+            org.w3c.dom.NodeList responses = doc.getElementsByTagNameNS("DAV:", "response");
+            for (int i = 0; i < responses.getLength(); i++) {
+                org.w3c.dom.Element resp = (org.w3c.dom.Element) responses.item(i);
 
-            FTPFile[] files = ftp.listFiles(path);
-            if (files != null) {
-                for (FTPFile file : files) {
-                    if (file.isDirectory()) {
-                        dirs.add("📁 " + file.getName());
+                // 获取 href
+                org.w3c.dom.NodeList hrefs = resp.getElementsByTagNameNS("DAV:", "href");
+                String href = hrefs.getLength() > 0 ? hrefs.item(0).getTextContent() : "";
+                // 跳过自身和父级
+                if (href.endsWith("/") && (href.equals(baseUrl) || href.endsWith(baseUrl.substring(0, baseUrl.length() - 1)))) continue;
+
+                // 判断是目录还是文件
+                org.w3c.dom.NodeList resTypes = resp.getElementsByTagNameNS("DAV:", "resourcetype");
+                boolean isCollection = false;
+                if (resTypes.getLength() > 0) {
+                    org.w3c.dom.NodeList children = resTypes.item(0).getChildNodes();
+                    for (int j = 0; j < children.getLength(); j++) {
+                        if ("collection".equals(children.item(j).getLocalName())) {
+                            isCollection = true;
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (dirs.isEmpty() || (dirs.size() == 1 && dirs.get(0).startsWith("📁 .."))) {
-                dirs.add("（此目录为空）");
-            }
+                if (!isCollection) continue; // 只显示目录
 
-            ftp.logout();
-        } catch (java.io.IOException e) {
-            dirs.add("⚠️ 读取失败: " + e.getMessage());
-        } finally {
-            try { if (ftp.isConnected()) ftp.disconnect(); } catch (java.io.IOException ignored) {}
+                // 提取名称
+                String decodedHref = java.net.URLDecoder.decode(href, "UTF-8");
+                // 去掉尾部斜杠和前面的路径部分
+                String basePart = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+                String relative = decodedHref;
+                if (relative.startsWith(basePart)) relative = relative.substring(basePart.length());
+                if (relative.startsWith("/")) relative = relative.substring(1);
+                if (relative.endsWith("/")) relative = relative.substring(0, relative.length() - 1);
+                if (relative.isEmpty() || relative.contains("/")) continue; // 跳过非直系子目录
+
+                result.add(new String[]{"📁", relative});
+            }
+        } catch (Exception e) {
+            // 解析失败，返回空列表
         }
-        return dirs;
+        return result;
     }
 
     private void setupAboutButton() {
@@ -890,4 +904,5 @@ public class SettingsActivity extends AppCompatActivity {
         }
         return super.onOptionsItemSelected(item);
     }
+
 }

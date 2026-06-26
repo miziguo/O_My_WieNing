@@ -50,9 +50,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.commons.net.ftp.FTP;
-import org.apache.commons.net.ftp.FTPClient;
-import org.apache.commons.net.ftp.FTPReply;
+import okhttp3.Credentials;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class MonitorService extends Service {
     private static final String TAG = "MonitorService";
@@ -281,8 +284,8 @@ public class MonitorService extends Service {
             mainHandler.postDelayed(this::hideCopyWindow, 1500);
 
             // 丢入上传队列——上传线程独立消费，不阻塞下一次复制
-            boolean ftpEnabled = sharedPrefs.getBoolean(SettingsActivity.KEY_FTP_ENABLED, false);
-            if (ftpEnabled && uploadQueue != null) {
+            boolean webdavEnabled = sharedPrefs.getBoolean(SettingsActivity.KEY_WEBDAV_ENABLED, false);
+            if (webdavEnabled && uploadQueue != null) {
                 uploadQueue.offer(new File(dstDir, actualFileName));
             }
         } else {
@@ -373,83 +376,115 @@ public class MonitorService extends Service {
                 }
             }
             uploadQueue.clear();
-        }, "FTP-Upload");
+        }, "WebDAV-Upload");
         uploadConsumerThread.start();
     }
 
     private void uploadSingleFile(File localFile) {
-        String host = sharedPrefs.getString(SettingsActivity.KEY_FTP_HOST, "");
-        int port = sharedPrefs.getInt(SettingsActivity.KEY_FTP_PORT, 21);
-        String username = sharedPrefs.getString(SettingsActivity.KEY_FTP_USERNAME, "");
-        String password = sharedPrefs.getString(SettingsActivity.KEY_FTP_PASSWORD, "");
-        String remotePath = sharedPrefs.getString(SettingsActivity.KEY_FTP_REMOTE_PATH, "/");
+        String baseUrl = sharedPrefs.getString(SettingsActivity.KEY_WEBDAV_URL, "");
+        String remotePath = sharedPrefs.getString(SettingsActivity.KEY_WEBDAV_REMOTE_PATH, "");
+        String username = sharedPrefs.getString(SettingsActivity.KEY_WEBDAV_USERNAME, "");
+        String password = sharedPrefs.getString(SettingsActivity.KEY_WEBDAV_PASSWORD, "");
 
-        if (host.isEmpty()) {
-            Log.w(TAG, "FTP 主机为空，跳过: " + localFile.getName());
+        if (baseUrl.isEmpty()) {
+            Log.w(TAG, "WebDAV 地址为空，跳过: " + localFile.getName());
             return;
         }
 
         showUploadWindow("上传中: " + localFile.getName());
 
-        FTPClient ftp = new FTPClient();
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
+
         try {
-            ftp.setConnectTimeout(10000);
-            ftp.setDataTimeout(30000);
-            ftp.connect(host, port);
-            int reply = ftp.getReplyCode();
-            if (!FTPReply.isPositiveCompletion(reply)) {
-                Log.e(TAG, "FTP 连接被拒: " + reply);
-                showUploadWindow("❌ " + localFile.getName());
-                mainHandler.postDelayed(this::hideUploadWindow, 3000);
-                ftp.disconnect();
-                return;
+            // 构建完整上传 URL: baseUrl + remotePath + filename
+            String fullBase = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+            String rp = (remotePath != null && !remotePath.isEmpty()) ? remotePath : "";
+            if (rp.startsWith("/")) rp = rp.substring(1);
+            if (!rp.isEmpty() && !rp.endsWith("/")) rp += "/";
+            String url = fullBase + rp + localFile.getName();
+
+            // 先尝试创建目标目录
+            String dirUrl = fullBase + rp;
+            ensureWebdavDir(client, dirUrl, username, password);
+
+            MediaType mediaType = MediaType.parse("application/octet-stream");
+            RequestBody body = RequestBody.create(localFile, mediaType);
+
+            Request.Builder reqBuilder = new Request.Builder()
+                    .url(url)
+                    .put(body);
+
+            if (!username.isEmpty()) {
+                reqBuilder.header("Authorization", Credentials.basic(username, password));
             }
 
-            ftp.setControlEncoding("UTF-8");
-            if (!ftp.login(username, password)) {
-                Log.e(TAG, "FTP 登录失败");
-                showUploadWindow("❌ " + localFile.getName());
-                mainHandler.postDelayed(this::hideUploadWindow, 3000);
-                ftp.logout();
-                return;
-            }
-
-            ftp.enterLocalPassiveMode();
-            ftp.setFileType(FTP.BINARY_FILE_TYPE);
-
-            if (!remotePath.isEmpty() && !remotePath.equals("/")) {
-                String[] dirs = remotePath.split("/");
-                for (String dir : dirs) {
-                    if (dir.isEmpty()) continue;
-                    if (!ftp.changeWorkingDirectory(dir)) {
-                        ftp.makeDirectory(dir);
-                        if (!ftp.changeWorkingDirectory(dir)) {
-                            ftp.changeWorkingDirectory("/");
-                            break;
-                        }
-                    }
-                }
-            }
-
-            try (FileInputStream fis = new FileInputStream(localFile)) {
-                if (ftp.storeFile(localFile.getName(), fis)) {
-                    Log.i(TAG, "FTP 上传成功: " + localFile.getName());
+            try (Response response = client.newCall(reqBuilder.build()).execute()) {
+                int code = response.code();
+                if (code >= 200 && code < 300) {
+                    Log.i(TAG, "WebDAV 上传成功: " + localFile.getName());
                     showUploadWindow("✅ " + localFile.getName());
                     mainHandler.postDelayed(this::hideUploadWindow, 2000);
                 } else {
-                    Log.e(TAG, "FTP 上传失败: " + localFile.getName());
-                    showUploadWindow("❌ " + localFile.getName());
+                    Log.e(TAG, "WebDAV 上传失败: " + localFile.getName() + " | " + code + " " + response.message());
+                    showUploadWindow("❌ " + localFile.getName() + " (" + code + ")");
                     mainHandler.postDelayed(this::hideUploadWindow, 3000);
                 }
             }
-
-            ftp.logout();
-        } catch (IOException e) {
-            Log.e(TAG, "FTP 异常: " + localFile.getName(), e);
-            showUploadWindow("❌ " + localFile.getName());
+        } catch (Exception e) {
+            Log.e(TAG, "WebDAV 异常: " + localFile.getName() + " | " + e.toString());
+            showUploadWindow("❌ " + localFile.getName() + " (" + e.getClass().getSimpleName() + ")");
             mainHandler.postDelayed(this::hideUploadWindow, 3000);
-        } finally {
-            try { if (ftp.isConnected()) ftp.disconnect(); } catch (IOException ignored) {}
+        }
+    }
+
+    /** WebDAV PROPFIND 最小 XML body（兼容严格服务器） */
+    private static final MediaType XML_MEDIA_TYPE = MediaType.parse("application/xml; charset=utf-8");
+    private static final String PROPFIND_BODY =
+            "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
+            "<D:propfind xmlns:D=\"DAV:\">\n" +
+            "  <D:prop>\n" +
+            "    <D:displayname/>\n" +
+            "    <D:resourcetype/>\n" +
+            "  </D:prop>\n" +
+            "</D:propfind>";
+
+    /** 确保 WebDAV 路径存在（PROPFIND 探测 + MKCOL 创建），失败不阻塞上传 */
+    private void ensureWebdavDir(OkHttpClient client, String dirUrl, String username, String password) {
+        try {
+            // PROPFIND 探测目录是否存在（带 XML body + Content-Type）
+            Request.Builder reqBuilder = new Request.Builder()
+                    .url(dirUrl)
+                    .method("PROPFIND", RequestBody.create(PROPFIND_BODY, XML_MEDIA_TYPE))
+                    .header("Depth", "0");
+            if (!username.isEmpty()) {
+                reqBuilder.header("Authorization", Credentials.basic(username, password));
+            }
+            try (Response resp = client.newCall(reqBuilder.build()).execute()) {
+                if (resp.code() >= 200 && resp.code() < 300) {
+                    return; // 目录已存在
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "WebDAV PROPFIND 异常（跳过目录检查）: " + e.getMessage());
+        }
+
+        // 目录不存在，尝试 MKCOL 创建
+        try {
+            Request.Builder reqBuilder = new Request.Builder()
+                    .url(dirUrl)
+                    .method("MKCOL", null);
+            if (!username.isEmpty()) {
+                reqBuilder.header("Authorization", Credentials.basic(username, password));
+            }
+            try (Response resp = client.newCall(reqBuilder.build()).execute()) {
+                Log.i(TAG, "WebDAV MKCOL: " + dirUrl + " -> " + resp.code());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "WebDAV MKCOL 失败（跳过目录创建，直接上传）: " + e.getMessage());
         }
     }
 
@@ -459,8 +494,8 @@ public class MonitorService extends Service {
 
     private void showDots() {
         showDot(1, 100);
-        boolean ftpEnabled = sharedPrefs.getBoolean(SettingsActivity.KEY_FTP_ENABLED, false);
-        if (ftpEnabled) showDot(2, 160);
+        boolean webdavEnabled = sharedPrefs.getBoolean(SettingsActivity.KEY_WEBDAV_ENABLED, false);
+        if (webdavEnabled) showDot(2, 160);
     }
 
     private void showDot(int id, int yOffset) {
@@ -628,4 +663,5 @@ public class MonitorService extends Service {
         am.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + RESTART_DELAY_MS, restartIntent);
         super.onTaskRemoved(rootIntent);
     }
+
 }

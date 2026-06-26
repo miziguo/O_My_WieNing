@@ -9,15 +9,11 @@ android {
         applicationId "o.my.wiening"
         minSdk 26
         targetSdk 34
-        versionCode 22
-        versionName "Release 4.0.0"
+        versionCode 30
+        versionName "5.0.0-rc.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-    buildFeatures {
-        buildConfig = true // 需要buildconfig
-    }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -30,7 +26,8 @@ android {
     }
     // 启用 ViewBinding
     buildFeatures {
-        viewBinding true
+        buildConfig = true
+        viewBinding = true
     }
 }
 
@@ -51,6 +48,9 @@ dependencies {
 
     // FTP 上传 (Apache Commons Net)
     implementation 'commons-net:commons-net:3.10.0'
+
+    // WebDAV 上传 (OkHttp)
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 
     // 测试库
     testImplementation 'junit:junit:4.13.2'
